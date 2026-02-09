@@ -1,0 +1,14 @@
+[Unit]
+Description=Valkey container
+
+[Container]
+Image=docker.io/valkey/valkey:latest
+Pod=nextcloud.pod
+ContainerName=nextcloud_valkey_1
+Environment=TZ=Europe/Moscow
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,30 @@
+[Unit]
+Description=Nginx container
+
+[Container]
+Image=docker.io/nginx:latest
+Pod=nextcloud.pod
+ContainerName=nextcloud_web_1
+Volume=/opt/podman/nextcloud/nginx.conf:/etc/nginx/nginx.conf:ro
+Volume=/opt/podman/nextcloud/nextcloud:/var/www/html
+AutoUpdate=registry
+Label=traefik.enable=true
+Label=traefik.http.routers.http-nextcloud.entryPoints=http
+Label=traefik.http.routers.http-nextcloud.rule=Host(`{{ nextcloud.domain }}`)
+Label=traefik.http.routers.http-nextcloud.middlewares=https_redirect@file
+Label=traefik.http.routers.https-nextcloud.entryPoints=https
+Label=traefik.http.routers.https-nextcloud.rule=Host(`{{ nextcloud.domain }}`)
+Label=traefik.http.routers.https-nextcloud.middlewares=nextcloud-redirect_dav@file,nextcloud-redirect_finger@file,nextcloud-redirect_nodeinfo@file,secure-header@file
+Label=traefik.http.routers.https-nextcloud.service=nextcloud
+Label=traefik.http.routers.https-nextcloud.tls=true
+Label=traefik.http.routers.https-nextcloud.tls.domains[0].main={{ nextcloud.domain }}
+Label=traefik.http.routers.https-nextcloud.tls.domains[0].sans={{ nextcloud.ech_domain }}
+Label=traefik.http.services.nextcloud.loadbalancer.server.port=80
+Label=traefik.http.routers.https-nextcloud.tls.certResolver=google
+Environment=TZ=Europe/Moscow
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
