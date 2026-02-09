@@ -1,6 +1,6 @@
 
 
-```markdown
+````markdown
 # infra
 
 Infrastructure-as-code for personal server stack. Podman Quadlet configs, service configs and secrets — all templated, versioned, and deployed over SSH.
@@ -9,98 +9,70 @@ Infrastructure-as-code for personal server stack. Podman Quadlet configs, servic
 
 | Service | What |
 |---|---|
-| **traefik** | Reverse proxy, TLS termination (Google ACME + Cloudflare DNS) |
-| **synapse** | Matrix homeserver + PostgreSQL |
-| **nextcloud** | Nextcloud + MariaDB + Valkey + Nginx |
-| **element** | Element Web + Synapse Admin |
-| **metrics** | Prometheus + Node Exporter + Grafana |
-| **sing-box** | Proxy server (templates only, generator lives in a separate repo) |
+| `traefik` | Reverse proxy, TLS termination (Google ACME + Cloudflare DNS) |
+| `synapse` | Matrix homeserver + PostgreSQL |
+| `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx |
+| `element` | Element Web + Synapse Admin |
+| `metrics` | Prometheus + Node Exporter + Grafana |
+| `sing-box` | Proxy server (templates only, generator lives in a separate repo) |
 
 ## Structure
 
-```
+```text
 infra/
 ├── secrets/
-│   └── hosts.enc.yaml          # SSH connection info for all servers
+│   └── hosts.enc.yaml
 ├── lib/
-│   ├── sops.py                 # SOPS decryption
-│   ├── remote.py               # SSH/rsync helpers
-│   ├── jinja.py                # Jinja2 environment
-│   └── deploy.py               # Core deploy logic (render/diff/deploy)
+│   ├── sops.py
+│   ├── remote.py
+│   ├── jinja.py
+│   └── deploy.py
 ├── traefik/
-│   ├── deploy.py               # Service-specific config
-│   ├── templates/              # Jinja2 templates
-│   │   ├── traefik.yml.j2
-│   │   ├── dynamic1.yml.j2
-│   │   └── traefik.container.j2
+│   ├── deploy.py
+│   ├── templates/
 │   └── secrets/
-│       └── secrets.enc.yaml
 ├── synapse/
 │   ├── deploy.py
 │   ├── templates/
-│   │   ├── synapse.pod.j2
-│   │   ├── 1-postgresql.container.j2
-│   │   ├── 2-synapse.container.j2
-│   │   ├── homeserver.yaml.j2
-│   │   └── log.config.j2
 │   └── secrets/
-│       └── secrets.enc.yaml
 ├── nextcloud/
 │   ├── deploy.py
 │   ├── templates/
-│   │   ├── nextcloud.pod.j2
-│   │   ├── 1-mariadb.container.j2
-│   │   ├── 2-valkey.container.j2
-│   │   ├── 3-nextcloud-app.container.j2
-│   │   ├── 4-nginx.container.j2
-│   │   ├── nginx.conf.j2
-│   │   └── config.php.j2
 │   └── secrets/
-│       └── secrets.enc.yaml
 ├── element/
 │   ├── deploy.py
 │   ├── templates/
-│   │   ├── element-web.container.j2
-│   │   ├── synapse-admin.container.j2
-│   │   ├── element_config.json.j2
-│   │   └── synapse_config.json.j2
 │   └── secrets/
-│       └── secrets.enc.yaml
 ├── metrics/
 │   ├── deploy.py
 │   ├── templates/
-│   │   ├── metrics.pod.j2
-│   │   ├── 1-prometheus.container.j2
-│   │   ├── 2-node-exporter.container.j2
-│   │   ├── 3-grafana.container.j2
-│   │   └── prometheus.yml.j2
 │   └── secrets/
-│       └── secrets.enc.yaml
 └── sing-box/
-    ├── templates/              # Consumed by external generator
+    ├── templates/
     └── secrets/
-        └── secrets.enc.yaml
 ```
 
 ## How it works
 
 Each service has:
-- **`templates/`** — Jinja2 templates for Quadlet units (`.container`, `.pod`) and service configs
-- **`secrets/`** — SOPS-encrypted YAML with passwords, domains, keys
-- **`deploy.py`** — thin config that plugs into `lib/deploy.py`
 
-`lib/deploy.py` handles all the logic:
+- `templates/` — Jinja2 templates for Quadlet units and service configs
+- `secrets/` — SOPS-encrypted YAML with passwords, domains, keys
+- `deploy.py` — thin config that plugs into `lib/deploy.py`
+
+Deploy flow:
+
 1. Decrypts secrets with SOPS
 2. Resolves SSH target from `secrets/hosts.enc.yaml`
 3. Renders Jinja2 templates
 4. Syncs files to remote via rsync (checksum-based, idempotent)
 5. Restarts systemd units only if something changed
 
-### Single-instance vs multi-instance
+## Single-instance vs multi-instance
 
-Services deployed to one server (synapse, nextcloud, element) use `host: server1` in their secrets.
+Services deployed to **one server** (synapse, nextcloud, element) have `host: server1` in their secrets.
 
-Services deployed to multiple servers (traefik, metrics) use `instances:` with a `host:` reference per instance, and support `--all` flag.
+Services deployed to **multiple servers** (traefik, metrics) have `instances:` with a `host:` reference per instance and support `--all`.
 
 ## Prerequisites
 
@@ -112,7 +84,7 @@ Services deployed to multiple servers (traefik, metrics) use `instances:` with a
 
 ## Secrets
 
-All secrets are SOPS-encrypted. To edit:
+All secrets are SOPS-encrypted.
 
 ```bash
 # SSH connection info (shared by all services)
@@ -126,82 +98,66 @@ sops element/secrets/secrets.enc.yaml
 sops metrics/secrets/secrets.enc.yaml
 ```
 
-### `hosts.enc.yaml`
+### hosts.enc.yaml
 
-Central SSH config, referenced by all services:
+Central SSH config referenced by all services:
 
 ```yaml
 server1:
-  address: server1.example.ru
+  address: server1.example.com
   ssh_port: 2222
-  ssh_user: root
+  ssh_user: user_A
 server2:
-  address: server2.example.ru
+  address: server2.example.com
   ssh_port: 2222
-  ssh_user: root
+  ssh_user: user_A
 ```
 
-### Service secrets
-
-Single-instance services reference a host by name:
+### Single-instance secrets
 
 ```yaml
 host: server1
 
 synapse:
-  server_name: matrix.example.ru
+  server_name: matrix.example.com
   postgres_password: "..."
 ```
 
-Multi-instance services define instances, each referencing a host:
+### Multi-instance secrets
 
 ```yaml
 common:
-  ech_domain: ech.example.ru
+  ech_domain: ech.example.com
 
 instances:
   server1:
     host: server1
-    domain: metrics1.example.ru
+    domain: metrics1.example.com
   server2:
     host: server2
-    domain: metrics2.example.ru
+    domain: metrics2.example.com
 ```
 
 ## Usage
 
-### Single-instance services (synapse, nextcloud, element)
+### Single-instance (synapse, nextcloud, element)
 
 ```bash
 cd synapse/
-
-# Preview rendered configs
 python deploy.py render
-
-# Compare with what's on the server
 python deploy.py diff
-
-# Deploy (restarts only if files changed)
 python deploy.py deploy
-
-# Deploy without restart
 python deploy.py deploy --no-restart
 ```
 
-### Multi-instance services (traefik, metrics)
+### Multi-instance (traefik, metrics)
 
 ```bash
 cd traefik/
-
-# List instances
 python deploy.py list
-
-# Target one instance
 python deploy.py render instance1
 python deploy.py diff instance1
 python deploy.py deploy instance1
-
-# Target all instances
 python deploy.py diff --all
 python deploy.py deploy --all
 python deploy.py deploy --all --no-restart
@@ -209,41 +165,31 @@ python deploy.py deploy --all --no-restart
 
 ## What gets deployed where
 
-### Quadlet units → `/etc/containers/systemd/`
+Quadlet units go to `/etc/containers/systemd/` on remote.
 
-Podman Quadlet `.container` and `.pod` files. After rsync, `systemctl daemon-reload` picks them up.
+Service configs go to `/opt/podman/<service>/` and are mounted into containers via Quadlet `Volume=`.
 
-### Service configs → `/opt/podman/<service>/`
-
-Config files (homeserver.yaml, nginx.conf, prometheus.yml, etc.) mounted into containers via Quadlet `Volume=` directives.
-
-### Secrets → `/opt/podman/<service>/` (mode 600)
-
-Signing keys, API tokens — written via SSH, not rsync, with `chmod 600`.
+Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
 
 ## Remote server layout
 
-```
+```text
 /opt/podman/
 ├── traefik/
-│   ├── settings/
-│   │   ├── traefik.yml
-│   │   └── dynamic/
-│   │       └── dynamic1.yml
+│   ├── settings/traefik.yml
+│   ├── settings/dynamic/dynamic1.yml
 │   ├── google_acme/
 │   ├── logs/
 │   ├── cf_email
 │   └── cf_token
 ├── synapse/
-│   ├── data/
-│   │   ├── homeserver.yaml
-│   │   ├── *.signing.key
-│   │   ├── *.log.config
-│   │   └── media_store/
+│   ├── data/homeserver.yaml
+│   ├── data/*.signing.key
+│   ├── data/*.log.config
+│   ├── data/media_store/
 │   └── db/
 ├── nextcloud/
-│   ├── nextcloud/
-│   │   └── config/config.php
+│   ├── nextcloud/config/config.php
 │   ├── nginx.conf
 │   ├── db/
 │   └── log/
@@ -251,36 +197,15 @@ Signing keys, API tokens — written via SSH, not rsync, with `chmod 600`.
 │   ├── element_config.json
 │   └── synapse_config.json
 └── metrics/
-    └── prometheus/
-        └── prometheus.yml
-
-/etc/containers/systemd/
-├── traefik.container
-├── synapse.pod
-├── 1-postgresql.container
-├── 2-synapse.container
-├── nextcloud.pod
-├── 1-mariadb.container
-├── 2-valkey.container
-├── 3-nextcloud-app.container
-├── 4-nginx.container
-├── element-web.container
-├── synapse-admin.container
-├── metrics.pod
-├── 1-prometheus.container
-├── 2-node-exporter.container
-└── 3-grafana.container
+    └── prometheus/prometheus.yml
 ```
 
 ## Adding a new service
 
 1. Create `<service>/templates/`, `<service>/secrets/`, `<service>/deploy.py`
-2. Write Jinja2 templates from existing configs (replace secrets with `{{ variables }}`)
-3. Create SOPS-encrypted secrets file
-4. Write `deploy.py` — define files list, setup dirs, restart command
-5. Test: `render` → `diff` → `deploy`
-
-Minimal `deploy.py`:
+2. Write Jinja2 templates (replace hardcoded secrets with variables)
+3. Create SOPS-encrypted secrets
+4. Write `deploy.py`:
 
 ```python
 #!/usr/bin/env python3
@@ -306,12 +231,15 @@ if __name__ == '__main__':
     deployer.run_cli()
 ```
 
+5. Test: `render` then `diff` then `deploy`
+
 ## Traefik middleware notes
 
-Two IP allowlist middlewares exist in `dynamic1.yml`:
+Two IP allowlist middlewares in `dynamic1.yml`:
 
-- **`blacklist`** — for services behind Cloudflare. Uses `ipStrategy.excludedIPs` to strip CF proxy IPs and check the real client IP.
-- **`blacklist-direct`** — for services accessed directly (no CF). Same allowlist, no `ipStrategy`.
+**`blacklist`** — for services behind Cloudflare. Uses `ipStrategy.excludedIPs` to strip CF proxy IPs and check real client IP.
 
-Services behind CF use `blacklist@file`, direct services use `blacklist-direct@file`. Controlled by `behind_cf` flag in metrics secrets.
-```
+**`blacklist-direct`** — for services accessed directly (no CF). Same allowlist, no `ipStrategy`.
+
+Controlled by `behind_cf` flag in service secrets.
+````
