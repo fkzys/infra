@@ -11,6 +11,7 @@ Infrastructure-as-code for personal server stack. Podman Quadlet configs, servic
 | `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx |
 | `element` | Element Web + Synapse Admin |
 | `metrics` | Prometheus + Node Exporter + Grafana |
+| `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
 | `sing-box` | Proxy server (templates only, generator lives in a separate repo) |
 
 ## Structure
@@ -44,6 +45,10 @@ infra/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
+├── jitsi/
+│   ├── deploy.py
+│   ├── templates/
+│   └── secrets/
 └── sing-box/
     ├── templates/
     └── secrets/
@@ -67,7 +72,7 @@ Deploy flow:
 
 ## Single-instance vs multi-instance
 
-Services deployed to **one server** (synapse, nextcloud, element) have `host: server1` in their secrets.
+Services deployed to **one server** (synapse, nextcloud, element, jitsi) have `host: server1` in their secrets.
 
 Services deployed to **multiple servers** (traefik, metrics) have `instances:` with a `host:` reference per instance and support `--all`.
 
@@ -93,6 +98,7 @@ sops synapse/secrets/secrets.enc.yaml
 sops nextcloud/secrets/secrets.enc.yaml
 sops element/secrets/secrets.enc.yaml
 sops metrics/secrets/secrets.enc.yaml
+sops jitsi/secrets/secrets.enc.yaml
 ```
 
 ### hosts.enc.yaml
@@ -137,7 +143,7 @@ instances:
 
 ## Usage
 
-### Single-instance (synapse, nextcloud, element)
+### Single-instance (synapse, nextcloud, element, jitsi)
 
 ```bash
 cd synapse/
@@ -193,8 +199,16 @@ Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
 ├── element_synapse_admin/
 │   ├── element_config.json
 │   └── synapse_config.json
-└── metrics/
-    └── prometheus/prometheus.yml
+├── metrics/
+│   └── prometheus/prometheus.yml
+└── jitsi/
+    ├── jitsi.env
+    └── jitsi-meet-cfg/
+        ├── prosody/
+        ├── jicofo/
+        ├── jvb/
+        ├── web/
+        └── transcripts/
 ```
 
 ## Adding a new service
@@ -239,3 +253,9 @@ Two IP allowlist middlewares in `dynamic1.yml`:
 **`blacklist-direct`** — for services accessed directly (no CF). Same allowlist, no `ipStrategy`.
 
 Controlled by `behind_cf` flag in service secrets.
+
+## Pod vs shared network
+
+Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx.
+
+Jitsi uses a **Quadlet Network** instead — containers need DNS-based discovery (`NetworkAlias=xmpp.meet.jitsi` for prosody), which doesn't work inside a pod since pods share a single network namespace and bypass container DNS.
