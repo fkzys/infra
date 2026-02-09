@@ -1,0 +1,185 @@
+import subprocess
+import sys
+import tempfile
+import argparse
+from pathlib import Path
+
+from lib.sops import decrypt_sops
+from lib.remote import ssh_run, ssh_read_file, rsync_file
+from lib.jinja import create_jinja_env
+
+HOSTS_FILE = Path(__file__).resolve().parent.parent / 'secrets' / 'hosts.enc.yaml'
+
+
+def load_hosts() -> dict:
+    return decrypt_sops(HOSTS_FILE)
+
+
+def resolve_target(hosts: dict, host_ref: str) -> tuple[str, int]:
+    if host_ref not in hosts:
+        print(f"Host '{host_ref}' not found in hosts.enc.yaml", file=sys.stderr)
+        print(f"Available: {', '.join(hosts.keys())}", file=sys.stderr)
+        sys.exit(1)
+    h = hosts[host_ref]
+    user = h.get('ssh_user', 'root')
+    port = h.get('ssh_port', 22)
+    return f"{user}@{h['address']}", port
+
+
+class ServiceDeployer:
+    def __init__(self, config: dict):
+        self.files = config['files']
+        self.setup_dirs = config.get('setup_dirs', [])
+        self.restart_cmd = config.get('restart_cmd')
+        self.secrets_hooks = config.get('secrets_hooks', [])
+        self.context_builder = config.get('context_builder')
+        self.templates_dir = config['templates_dir']
+        self.secrets_file = config['secrets_file']
+        self.multi_instance = config.get('multi_instance', False)
+
+    def _get_env(self):
+        return create_jinja_env(self.templates_dir)
+
+    def _get_host_ref(self, secrets, instance_name=None):
+        if self.multi_instance:
+            return secrets['instances'][instance_name]['host']
+        return secrets['host']
+
+    def _get_target(self, hosts, secrets, instance_name=None):
+        host_ref = self._get_host_ref(secrets, instance_name)
+        return resolve_target(hosts, host_ref)
+
+    def _build_context(self, secrets, instance_name=None):
+        if self.context_builder:
+            return self.context_builder(secrets, instance_name)
+        if self.multi_instance:
+            return {
+                'common': secrets.get('common', {}),
+                'instance': secrets['instances'][instance_name],
+                'instance_name': instance_name,
+            }
+        return secrets
+
+    def _resolve_remote_path(self, tpl, remote_path, secrets):
+        if callable(remote_path):
+            return remote_path(secrets)
+        return remote_path
+
+    def render(self, secrets, env, instance_name=None):
+        ctx = self._build_context(secrets, instance_name)
+        label = instance_name or self._get_host_ref(secrets)
+        print(f"\033[1;36m── {label} ──\033[0m")
+        for tpl, remote_path in self.files:
+            rp = self._resolve_remote_path(tpl, remote_path, secrets)
+            name = tpl.removesuffix('.j2')
+            print(f"\033[1;33m═══ {name} → {rp} ═══\033[0m")
+            print(env.get_template(tpl).render(**ctx))
+            print()
+
+    def diff(self, hosts, secrets, env, instance_name=None):
+        ctx = self._build_context(secrets, instance_name)
+        target, port = self._get_target(hosts, secrets, instance_name)
+        label = instance_name or self._get_host_ref(secrets)
+        print(f"\033[1;36m── {label} ({target}) ──\033[0m")
+        for tpl, remote_path in self.files:
+            rp = self._resolve_remote_path(tpl, remote_path, secrets)
+            name = tpl.removesuffix('.j2')
+            rendered = env.get_template(tpl).render(**ctx)
+            remote_content = ssh_read_file(target, rp, port)
+            if rendered == remote_content:
+                print(f"  \033[0;32m✓\033[0m {name}")
+            else:
+                print(f"  \033[1;33m→\033[0m {name} differs")
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as lf, \
+                     tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as rf:
+                    lf.write(rendered); lf.flush()
+                    rf.write(remote_content); rf.flush()
+                    subprocess.run(['diff', '--color', '-u', rf.name, lf.name])
+                print()
+
+    def deploy(self, hosts, secrets, env, instance_name=None, no_restart=False):
+        ctx = self._build_context(secrets, instance_name)
+        target, port = self._get_target(hosts, secrets, instance_name)
+        label = instance_name or self._get_host_ref(secrets)
+        print(f"\033[1;33m→\033[0m deploying {label} to {target}")
+
+        if self.setup_dirs:
+            ssh_run(target, f"mkdir -p {' '.join(self.setup_dirs)}", port)
+
+        changed = False
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            for tpl, remote_path in self.files:
+                rp = self._resolve_remote_path(tpl, remote_path, secrets)
+                rendered = env.get_template(tpl).render(**ctx)
+                local_file = tmpdir / tpl.removesuffix('.j2')
+                local_file.write_text(rendered)
+                if rsync_file(local_file, target, rp, port):
+                    print(f"  \033[1;33m→\033[0m {tpl.removesuffix('.j2')} updated")
+                    changed = True
+                else:
+                    print(f"  \033[0;32m✓\033[0m {tpl.removesuffix('.j2')} unchanged")
+
+        for hook in self.secrets_hooks:
+            hook(secrets, target, port)
+
+        if not no_restart and changed and self.restart_cmd:
+            ssh_run(target, self.restart_cmd, port)
+            print(f"  \033[0;32m✓\033[0m restarted")
+        elif not changed:
+            print(f"  \033[0;32m✓\033[0m no changes")
+
+        print(f"\033[0;32m✓\033[0m {label} done\n")
+
+    def run_cli(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument('command', choices=['list', 'render', 'diff', 'deploy'])
+        parser.add_argument('instance', nargs='?')
+        parser.add_argument('-s', '--secrets', default=str(self.secrets_file))
+        parser.add_argument('--all', action='store_true')
+        parser.add_argument('--no-restart', action='store_true')
+        args = parser.parse_args()
+
+        secrets = decrypt_sops(Path(args.secrets))
+        env = self._get_env()
+        hosts = load_hosts()
+
+        if self.multi_instance:
+            if args.command == 'list':
+                for name, data in secrets['instances'].items():
+                    host_ref = data['host']
+                    addr = hosts.get(host_ref, {}).get('address', '?')
+                    print(f"  {name}\t{addr}")
+                return
+
+            if args.all:
+                instances = list(secrets['instances'].keys())
+            elif args.instance:
+                if args.instance not in secrets['instances']:
+                    print(f"'{args.instance}' not found. "
+                          f"Available: {', '.join(secrets['instances'].keys())}",
+                          file=sys.stderr)
+                    sys.exit(1)
+                instances = [args.instance]
+            else:
+                parser.error(f"'{args.command}' requires instance name or --all")
+
+            for inst in instances:
+                if args.command == 'render':
+                    self.render(secrets, env, inst)
+                elif args.command == 'diff':
+                    self.diff(hosts, secrets, env, inst)
+                elif args.command == 'deploy':
+                    self.deploy(hosts, secrets, env, inst, no_restart=args.no_restart)
+        else:
+            if args.command == 'list':
+                host_ref = secrets['host']
+                addr = hosts.get(host_ref, {}).get('address', '?')
+                print(f"  {host_ref}\t{addr}")
+                return
+            if args.command == 'render':
+                self.render(secrets, env)
+            elif args.command == 'diff':
+                self.diff(hosts, secrets, env)
+            elif args.command == 'deploy':
+                self.deploy(hosts, secrets, env, no_restart=args.no_restart)
