@@ -1,0 +1,21 @@
+[Unit]
+Description=Nextcloud container
+
+[Container]
+Image=docker.io/nextcloud:32.0.2-fpm
+Pod=nextcloud.pod
+ContainerName=nextcloud_app_1
+Environment=MYSQL_PASSWORD={{ nextcloud.mysql_password }}
+Environment=MYSQL_DATABASE=nextcloud
+Environment=MYSQL_USER=nextcloud
+Environment=MYSQL_HOST=nextcloud_db_1
+Environment=REDIS_HOST=nextcloud_valkey_1
+Environment=TZ=Europe/Moscow
+Volume=/opt/podman/nextcloud/nextcloud:/var/www/html
+Volume=/opt/podman/nextcloud/log:/var/log/nextcloud
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

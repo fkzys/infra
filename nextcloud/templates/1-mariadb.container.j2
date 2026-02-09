@@ -1,0 +1,19 @@
+[Unit]
+Description=MariaDB container
+
+[Container]
+Image=docker.io/mariadb:11.5
+Pod=nextcloud.pod
+ContainerName=nextcloud_db_1
+Environment=MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=true
+Environment=MYSQL_PASSWORD={{ nextcloud.mysql_password }}
+Environment=MYSQL_DATABASE=nextcloud
+Environment=MYSQL_USER=nextcloud
+Volume=/opt/podman/nextcloud/db:/var/lib/mysql
+Environment=TZ=Europe/Moscow
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

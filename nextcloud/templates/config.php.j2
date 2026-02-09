@@ -1,0 +1,63 @@
+<?php
+$CONFIG = array (
+  'datadirectory' => '/var/www/html/data',
+  'logfile' => '/var/log/nextcloud/nextcloud.log',
+  'apps_paths' =>
+  array (
+    0 =>
+    array (
+      'path' => '/var/www/html/apps',
+      'url' => '/apps',
+      'writable' => false,
+    ),
+    1 =>
+    array (
+      'path' => '/var/www/html/custom_apps',
+      'url' => '/custom_apps',
+      'writable' => true,
+    ),
+  ),
+  'trusted_domains' =>
+  array (
+    0 => 'localhost',
+    1 => '{{ nextcloud.domain }}',
+  ),
+  'trusted_proxies' =>
+  array (
+    0 => '10.0.0.0/8',
+  ),
+  'overwrite.cli.url' => 'https://{{ nextcloud.domain }}/',
+  'htaccess.RewriteBase' => '/',
+  'passwordsalt' => '{{ nextcloud.passwordsalt }}',
+  'secret' => '{{ nextcloud.secret }}',
+  'dbtype' => 'mysql',
+  'version' => '32.0.2.2',
+  'dbname' => 'nextcloud',
+  'dbhost' => 'nextcloud_db_1',
+  'dbport' => '{{ nextcloud.db_port }}',
+  'dbtableprefix' => 'oc_',
+  'mysql.utf8mb4' => true,
+  'dbuser' => 'nextcloud',
+  'dbpassword' => '{{ nextcloud.mysql_password }}',
+  'installed' => true,
+  'instanceid' => '{{ nextcloud.instanceid }}',
+  'memcache.local' => '\\OC\\Memcache\\APCu',
+  'memcache.distributed' => '\\OC\\Memcache\\Redis',
+  'memcache.locking' => '\\OC\\Memcache\\Redis',
+  'redis' =>
+  array (
+    'host' => 'nextcloud_valkey_1',
+    'password' => '',
+    'port' => 6379,
+  ),
+  'maintenance' => false,
+  'theme' => '',
+  'loglevel' => 2,
+  'versions_retention_obligation' => 'auto, 7',
+  'trashbin_retention_obligation' => 'auto, 7',
+  'upgrade.disable-web' => true,
+  'maintenance_window_start' => 1,
+  'mail_smtpsecure' => 'ssl',
+  'data-fingerprint' => '{{ nextcloud.data_fingerprint }}',
+  'files.chunked_upload.max_size' => 10485760,
+);
