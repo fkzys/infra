@@ -3,9 +3,15 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.deploy import ServiceDeployer
+from lib.remote import ssh_run
 
 BASE = Path(__file__).parent
 REMOTE_BASE = '/opt/podman/nextcloud'
+
+
+def fix_ownership(secrets, target, port):
+    ssh_run(target, f'chown -R 33:33 {REMOTE_BASE}/nextcloud/config', port)
+
 
 deployer = ServiceDeployer({
     'templates_dir': BASE / 'templates',
@@ -16,10 +22,15 @@ deployer = ServiceDeployer({
         ('2-valkey.container.j2', '/etc/containers/systemd/2-valkey.container'),
         ('3-nextcloud-app.container.j2', '/etc/containers/systemd/3-nextcloud-app.container'),
         ('4-nginx.container.j2', '/etc/containers/systemd/4-nginx.container'),
-        ('nginx.conf.j2', f'{REMOTE_BASE}/nginx.conf'),
         ('config.php.j2', f'{REMOTE_BASE}/nextcloud/config/config.php'),
+        ('nginx.conf.j2', f'{REMOTE_BASE}/nginx.conf'),
     ],
-    'setup_dirs': [f'{REMOTE_BASE}/db', f'{REMOTE_BASE}/nextcloud/config', f'{REMOTE_BASE}/log'],
+    'setup_dirs': [
+        f'{REMOTE_BASE}/nextcloud/config',
+        f'{REMOTE_BASE}/db',
+        f'{REMOTE_BASE}/log',
+    ],
+    'secrets_hooks': [fix_ownership],
     'restart_cmd': 'systemctl daemon-reload && systemctl restart nextcloud-pod',
 })
 
