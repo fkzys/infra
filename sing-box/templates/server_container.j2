@@ -45,7 +45,6 @@ Label=traefik.http.routers.sing-box_http-upgrade.tls=true
 Label=traefik.http.routers.sing-box_http-upgrade.tls.domains[0].main={{ current_instance.domain }}
 Label=traefik.http.routers.sing-box_http-upgrade.tls.domains[0].sans={{ current_instance.ech_domain }}
 Label=traefik.http.services.sing-box_http-upgrade.loadbalancer.server.port=4053
-Label=traefik.http.routers.sing-box_http-upgrade.tls=true
 
 [Service]
 Restart=always
