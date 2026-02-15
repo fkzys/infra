@@ -1,0 +1,10 @@
+# Managed by infra repo
+[Unit]
+Description=Kopia backup timer
+
+[Timer]
+OnCalendar={{ backup.schedule }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+# Managed by infra repo
+[Unit]
+Description=Kopia backup (nextcloud + synapse)
+
+[Service]
+Type=oneshot
+ExecStart=/root/scripts/backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
