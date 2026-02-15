@@ -60,19 +60,25 @@ class ServiceDeployer:
             }
         return secrets
 
-    def _resolve_remote_path(self, tpl, remote_path, secrets):
+    def _parse_file_entry(self, entry, secrets):
+        if len(entry) == 3:
+            tpl, remote_path, mode = entry
+        else:
+            tpl, remote_path = entry
+            mode = None
         if callable(remote_path):
-            return remote_path(secrets)
-        return remote_path
+            remote_path = remote_path(secrets)
+        return tpl, remote_path, mode
 
     def render(self, secrets, env, instance_name=None):
         ctx = self._build_context(secrets, instance_name)
         label = instance_name or self._get_host_ref(secrets)
         print(f"\033[1;36m── {label} ──\033[0m")
-        for tpl, remote_path in self.files:
-            rp = self._resolve_remote_path(tpl, remote_path, secrets)
+        for entry in self.files:
+            tpl, rp, mode = self._parse_file_entry(entry, secrets)
             name = tpl.removesuffix('.j2')
-            print(f"\033[1;33m═══ {name} → {rp} ═══\033[0m")
+            mode_str = f' ({mode})' if mode else ''
+            print(f"\033[1;33m═══ {name} → {rp}{mode_str} ═══\033[0m")
             print(env.get_template(tpl).render(**ctx))
             print()
 
@@ -81,8 +87,8 @@ class ServiceDeployer:
         target, port = self._get_target(hosts, secrets, instance_name)
         label = instance_name or self._get_host_ref(secrets)
         print(f"\033[1;36m── {label} ({target}) ──\033[0m")
-        for tpl, remote_path in self.files:
-            rp = self._resolve_remote_path(tpl, remote_path, secrets)
+        for entry in self.files:
+            tpl, rp, mode = self._parse_file_entry(entry, secrets)
             name = tpl.removesuffix('.j2')
             rendered = env.get_template(tpl).render(**ctx)
             remote_content = ssh_read_file(target, rp, port)
@@ -109,8 +115,8 @@ class ServiceDeployer:
         changed = False
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-            for tpl, remote_path in self.files:
-                rp = self._resolve_remote_path(tpl, remote_path, secrets)
+            for entry in self.files:
+                tpl, rp, mode = self._parse_file_entry(entry, secrets)
                 rendered = env.get_template(tpl).render(**ctx)
                 local_file = tmpdir / tpl.removesuffix('.j2')
                 local_file.write_text(rendered)
@@ -119,6 +125,8 @@ class ServiceDeployer:
                     changed = True
                 else:
                     print(f"  \033[0;32m✓\033[0m {tpl.removesuffix('.j2')} unchanged")
+                if mode:
+                    ssh_run(target, f'chmod {mode} {rp}', port)
 
         for hook in self.secrets_hooks:
             hook(secrets, target, port)
@@ -134,7 +142,7 @@ class ServiceDeployer:
     def run_cli(self):
         parser = argparse.ArgumentParser()
         parser.add_argument('command', choices=['list', 'render', 'diff', 'deploy'])
-        parser.add_argument('instance', nargs='?')
+        parser.add_argument('instance', nargs='*')
         parser.add_argument('-s', '--secrets', default=str(self.secrets_file))
         parser.add_argument('--all', action='store_true')
         parser.add_argument('--no-restart', action='store_true')
@@ -155,14 +163,15 @@ class ServiceDeployer:
             if args.all:
                 instances = list(secrets['instances'].keys())
             elif args.instance:
-                if args.instance not in secrets['instances']:
-                    print(f"'{args.instance}' not found. "
+                unknown = [i for i in args.instance if i not in secrets['instances']]
+                if unknown:
+                    print(f"Unknown: {', '.join(unknown)}. "
                           f"Available: {', '.join(secrets['instances'].keys())}",
                           file=sys.stderr)
                     sys.exit(1)
-                instances = [args.instance]
+                instances = args.instance
             else:
-                parser.error(f"'{args.command}' requires instance name or --all")
+                parser.error(f"'{args.command}' requires instance name(s) or --all")
 
             for inst in instances:
                 if args.command == 'render':
