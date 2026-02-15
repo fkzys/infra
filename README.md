@@ -14,6 +14,7 @@ Infrastructure-as-code for personal server stack. Podman Quadlet configs, servic
 | `metrics` | Prometheus + Node Exporter + Grafana |
 | `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
 | `coturn` | TURN/STUN relay servers for Synapse and Jitsi (native, no container) |
+| `wireguard` | WireGuard mesh + client tunnels (native, no container) |
 | `mail` | Postfix + Dovecot + OpenDKIM ⚠️ legacy, see [note](#mail-legacy) |
 | `sing-box` | Proxy server + client/router config generator with Cloudflare KV distribution |
 
@@ -60,6 +61,10 @@ infra/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
+├── wireguard/
+│   ├── deploy.py
+│   ├── templates/
+│   └── secrets/
 ├── mail/
 │   ├── deploy.py
 │   ├── templates/
@@ -86,7 +91,22 @@ Deploy flow:
 2. Resolves SSH target from `secrets/hosts.enc.yaml`
 3. Renders Jinja2 templates
 4. Syncs files to remote via rsync (checksum-based, idempotent)
-5. Restarts systemd units only if something changed
+5. Applies file ownership/permissions if specified (`owner`, `mode` in file config)
+6. Restarts systemd units only if something changed
+
+## File permissions
+
+Files in the `files` list support an optional third element — a dict with `owner` and/or `mode`:
+
+```python
+'files': [
+    ('config.yml.j2', '/opt/podman/myservice/config.yml'),                          # no perms
+    ('wg0.conf.j2', '/etc/wireguard/wg0.conf', {'owner': 'root:root', 'mode': '600'}),  # both
+    ('config.php.j2', '/opt/podman/nextcloud/config.php', {'owner': '33:33'}),      # owner only
+]
+```
+
+Applied after rsync via `chown`/`chmod` over SSH. Shown in `render` and `diff` output.
 
 ## Certificates
 
@@ -122,13 +142,13 @@ Auto-renewal via cron:
 
 Services deployed to **one server** (synapse, nextcloud, element, jitsi) have `host: server1` in their secrets.
 
-Services deployed to **multiple servers** (traefik, metrics, coturn, mail, sing-box) have `instances:` with a `host:` reference per instance and support `--all`.
+Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, mail, sing-box) have `instances:` with a `host:` reference per instance and support `--all`.
 
 ## Containerized vs native
 
 Most services run as **Podman containers** managed via Quadlet units.
 
-**coturn** and **mail** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, and tight integration with system sockets (coturn UDP relay, Postfix/Dovecot SASL). Only config files are deployed, no Quadlet units.
+**coturn**, **wireguard**, and **mail** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, kernel-level interfaces (WireGuard), or tight integration with system sockets (coturn UDP relay, Postfix/Dovecot SASL). Only config files are deployed, no Quadlet units.
 
 ## Prerequisites
 
@@ -157,6 +177,7 @@ sops element/secrets/secrets.enc.yaml
 sops metrics/secrets/secrets.enc.yaml
 sops jitsi/secrets/secrets.enc.yaml
 sops coturn/secrets/secrets.enc.yaml
+sops wireguard/secrets/secrets.enc.yaml
 sops mail/secrets/secrets.enc.yaml
 sops sing-box/secrets/secrets.enc.yaml
 ```
@@ -246,6 +267,47 @@ instances:
     dh2066: true
 ```
 
+### wireguard secrets
+
+```yaml
+common:
+  listen_port: 51453
+
+instances:
+  server1:
+    host: server1
+    address: "...::1/128"
+    private_key: "..."
+    peers:
+      - name: Vps2
+        public_key: "..."
+        allowed_ips: ["...::2/128", "...::5/128", "...::6/128"]
+        endpoint: "1.2.3.4:51453"
+        keepalive: 20
+      - name: Phone
+        public_key: "..."
+        allowed_ips: ["...::3/128"]
+      - name: Pc
+        public_key: "..."
+        allowed_ips: ["...::4/128"]
+  server2:
+    host: server2
+    address: "...::2/128"
+    private_key: "..."
+    peers:
+      - name: Vps1
+        public_key: "..."
+        allowed_ips: ["...::1/128", "...::3/128", "...::4/128"]
+        endpoint: "4.5.6.7:51453"
+        keepalive: 20
+      - name: Phone
+        public_key: "..."
+        allowed_ips: ["...::6/128"]
+      - name: Pc
+        public_key: "..."
+        allowed_ips: ["...::5/128"]
+```
+
 ## Usage
 
 ### Single-instance (synapse, nextcloud, element, jitsi)
@@ -258,7 +320,7 @@ python deploy.py deploy
 python deploy.py deploy --no-restart
 ```
 
-### Multi-instance (traefik, metrics, coturn, mail, sing-box)
+### Multi-instance (traefik, metrics, coturn, wireguard, mail, sing-box)
 
 ```bash
 cd traefik/
@@ -266,6 +328,7 @@ python deploy.py list
 python deploy.py render instance1
 python deploy.py diff instance1
 python deploy.py deploy instance1
+python deploy.py deploy instance1 instance2   # multiple instances
 python deploy.py diff --all
 python deploy.py deploy --all
 python deploy.py deploy --all --no-restart
@@ -316,6 +379,7 @@ Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-on
 
 Native service configs:
 - coturn → `/etc/turnserver/turnserver.conf`
+- wireguard → `/etc/wireguard/wg0.conf`
 - mail → `/etc/postfix/`, `/etc/dovecot/`, `/etc/opendkim/`
 
 ## Remote server layout
@@ -327,6 +391,9 @@ Native service configs:
 
 /etc/turnserver/
 └── turnserver.conf
+
+/etc/wireguard/
+└── wg0.conf
 
 /etc/postfix/
 ├── main.cf
@@ -408,6 +475,7 @@ deployer = ServiceDeployer({
     'files': [
         ('myservice.container.j2', '/etc/containers/systemd/myservice.container'),
         ('config.yml.j2', '/opt/podman/myservice/config.yml'),
+        ('secret.conf.j2', '/etc/myservice/secret.conf', {'owner': 'root:root', 'mode': '600'}),
     ],
     'setup_dirs': ['/opt/podman/myservice'],
     'restart_cmd': 'systemctl daemon-reload && systemctl restart myservice',
