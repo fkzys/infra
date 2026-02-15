@@ -1,15 +1,18 @@
 # infra
 
-Infrastructure-as-code for personal server stack. Podman Quadlet configs, service configs and secrets — all templated, versioned, and deployed over SSH.
+Infrastructure-as-code for a personal server stack. Podman Quadlet configs, service configs and secrets — all templated, versioned and deployed over SSH.
 
 ## Stack
 
 | Service | What |
 |---|---|
+| `system` | Base OS hardening: sshd, sysctl, systemd-networkd, maintenance timers (btrfs scrub, paccache, sysctl reapply) |
+| `firewall` | Firewalld zones: public, wireguard, filter-closed, trusted — ports opened per-instance from secrets |
+| `backup` | Kopia snapshots to S3 with btrfs atomic snapshots, systemd timer |
 | `certs` | Centralized wildcard TLS certificates (Google ACME + Cloudflare DNS challenge via lego) |
 | `traefik` | Reverse proxy, TLS termination |
 | `synapse` | Matrix homeserver + PostgreSQL |
-| `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx |
+| `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx + cron timer |
 | `element` | Element Web + Synapse Admin |
 | `metrics` | Prometheus + Node Exporter + Grafana |
 | `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
@@ -29,10 +32,22 @@ infra/
 │   ├── remote.py
 │   ├── jinja.py
 │   └── deploy.py
+├── system/
+│   ├── deploy.py
+│   ├── templates/
+│   └── secrets/
+├── firewall/
+│   ├── deploy.py
+│   ├── templates/
+│   └── secrets/
+├── backup/
+│   ├── deploy.py
+│   ├── templates/
+│   └── secrets/
 ├── certs/
 │   ├── deploy.py
 │   ├── secrets/
-│   └── .certstore/          ← gitignored, lego state + certs
+│   └── .certstore/              ← gitignored, lego state + certs
 ├── traefik/
 │   ├── deploy.py
 │   ├── templates/
@@ -70,18 +85,18 @@ infra/
 │   ├── templates/
 │   └── secrets/
 └── sing-box/
-    ├── deploy.py             ← server deploy (render/diff/deploy)
-    ├── generate.py           ← client/router config generator + KV
+    ├── deploy.py              ← server deploy (render/diff/deploy)
+    ├── generate.py            ← client/router config generator + KV
     ├── templates/
     ├── secrets/
-    └── output/               ← gitignored
+    └── output/                ← gitignored
 ```
 
 ## How it works
 
 Each service has:
 
-- `templates/` — Jinja2 templates for Quadlet units and service configs
+- `templates/` — Jinja2 templates for Quadlet units, configs or scripts
 - `secrets/` — SOPS-encrypted YAML with passwords, domains, keys
 - `deploy.py` — thin config that plugs into `lib/deploy.py`
 
@@ -100,9 +115,10 @@ Files in the `files` list support an optional third element — a dict with `own
 
 ```python
 'files': [
-    ('config.yml.j2', '/opt/podman/myservice/config.yml'),                          # no perms
-    ('wg0.conf.j2', '/etc/wireguard/wg0.conf', {'owner': 'root:root', 'mode': '600'}),  # both
-    ('config.php.j2', '/opt/podman/nextcloud/config.php', {'owner': '33:33'}),      # owner only
+    ('config.yml.j2', '/opt/podman/myservice/config.yml'),                                          # no perms
+    ('wg0.conf.j2', '/etc/wireguard/wg0.conf', {'owner': 'root:root', 'mode': '600'}),             # both
+    ('config.php.j2', '/opt/podman/nextcloud/config.php', {'owner': '33:33'}),                      # owner only
+    ('backup.sh.j2', '/root/scripts/backup.sh', {'owner': 'root:root', 'mode': '700'}),            # script
 ]
 ```
 
@@ -120,12 +136,12 @@ Wildcard certificate is managed centrally by `certs/deploy.py`:
 
 ```bash
 cd certs/
-python deploy.py status              # check certificate expiry
-python deploy.py issue               # obtain/renew certificate
-python deploy.py issue --force       # force re-issue regardless of expiry
-python deploy.py distribute          # push to all target servers
-python deploy.py distribute server1  # push to specific server
-python deploy.py renew               # issue if <30 days + distribute
+python deploy.py status                # check certificate expiry
+python deploy.py issue                 # obtain/renew certificate
+python deploy.py issue --force         # force re-issue regardless of expiry
+python deploy.py distribute            # push to all target servers
+python deploy.py distribute server1    # push to specific server
+python deploy.py renew                 # issue if <30 days + distribute
 ```
 
 Traefik reads certificates from `/etc/ssl/` via file provider with `watch: true` — updating the cert files and touching the dynamic config is enough, no container restart required.
@@ -140,15 +156,15 @@ Auto-renewal via cron:
 
 ## Single-instance vs multi-instance
 
-Services deployed to **one server** (synapse, nextcloud, element, jitsi) have `host: server1` in their secrets.
+Services deployed to **one server** (synapse, nextcloud, element, jitsi, backup) have `host: server1` in their secrets.
 
-Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, mail, sing-box) have `instances:` with a `host:` reference per instance and support `--all`.
+Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, mail, sing-box, system, firewall) have `instances:` with a `host:` reference per instance and support `--all`.
 
 ## Containerized vs native
 
 Most services run as **Podman containers** managed via Quadlet units.
 
-**coturn**, **wireguard**, and **mail** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, kernel-level interfaces (WireGuard), or tight integration with system sockets (coturn UDP relay, Postfix/Dovecot SASL). Only config files are deployed, no Quadlet units.
+**coturn**, **wireguard**, **mail**, **system**, and **firewall** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, kernel-level interfaces (WireGuard), or tight integration with system sockets (coturn UDP relay, Postfix/Dovecot SASL). Only config files are deployed, no Quadlet units.
 
 ## Prerequisites
 
@@ -180,6 +196,9 @@ sops coturn/secrets/secrets.enc.yaml
 sops wireguard/secrets/secrets.enc.yaml
 sops mail/secrets/secrets.enc.yaml
 sops sing-box/secrets/secrets.enc.yaml
+sops system/secrets/secrets.enc.yaml
+sops firewall/secrets/secrets.enc.yaml
+sops backup/secrets/secrets.enc.yaml
 ```
 
 ### hosts.enc.yaml
@@ -238,6 +257,80 @@ instances:
   server2:
     host: server2
     domain: metrics2.example.com
+```
+
+### system secrets
+
+```yaml
+common:
+  ssh_port: 2222
+  ssh_allowed_users:
+    - user_A
+    - user_B
+  ssh_otp_users:
+    - user_A
+  journal_max_use: 200M
+  network_stack: dual
+
+instances:
+  instance1:
+    host: server1
+    network_stack: dual
+  instance2:
+    host: server2
+    network_stack: dual
+```
+
+### firewall secrets
+
+```yaml
+common:
+  ssh_port: 2222
+  wg_port: 51453
+  trusted_ips:
+    - 10.0.0.0/8
+    - ...
+
+instances:
+  instance1:
+    host: server1
+    filter_zone: true
+    ssh_on_public: true
+    wireguard: true
+    wg_endpoint: true
+    web: true
+    smtp: false
+    turn: true
+    mail_on_wg: false
+  instance2:
+    host: server2
+    filter_zone: true
+    ssh_on_public: true
+    wireguard: true
+    wg_endpoint: true
+    web: true
+    smtp: true
+    turn: true
+    mail_on_wg: true
+```
+
+### backup secrets
+
+```yaml
+host: server1
+
+backup:
+  hostname: vps1
+  kopia_password: "..."
+  schedule: "*-*-* 04:00:00"
+  repositories:
+    - name: s3-backup
+      bucket: my-bucket
+      prefix: vps1
+      endpoint: s3.example.com
+      region: us-east-1
+      access_key: "..."
+      secret_key: "..."
 ```
 
 ### coturn secrets
@@ -310,7 +403,7 @@ instances:
 
 ## Usage
 
-### Single-instance (synapse, nextcloud, element, jitsi)
+### Single-instance (synapse, nextcloud, element, jitsi, backup)
 
 ```bash
 cd synapse/
@@ -320,10 +413,10 @@ python deploy.py deploy
 python deploy.py deploy --no-restart
 ```
 
-### Multi-instance (traefik, metrics, coturn, wireguard, mail, sing-box)
+### Multi-instance (traefik, metrics, coturn, wireguard, mail, sing-box, system, firewall)
 
 ```bash
-cd traefik/
+cd firewall/
 python deploy.py list
 python deploy.py render instance1
 python deploy.py diff instance1
@@ -342,22 +435,22 @@ python deploy.py deploy --all --no-restart
 cd sing-box/
 
 # Generate configs locally
-python generate.py                          # all clients + routers
-python generate.py --target clients         # only clients
-python generate.py --target router          # only routers
+python generate.py                             # all clients + routers
+python generate.py --target clients            # only clients
+python generate.py --target router             # only routers
 
 # Generate + upload to Cloudflare KV
 python generate.py --upload
 
 # Token management
-python generate.py --gen-token              # generate 1 token
-python generate.py --gen-token -n 5         # generate 5 tokens
-python generate.py --gen-token --user bob   # generate token for user 'bob'
+python generate.py --gen-token                 # generate 1 token
+python generate.py --gen-token -n 5            # generate 5 tokens
+python generate.py --gen-token --user bob      # generate token for user 'bob'
 
 # KV management
-python generate.py --list-kv                # list all keys in KV
-python generate.py --revoke phone-m         # delete phone-m configs from KV
-python generate.py --purge-kv               # delete everything from KV
+python generate.py --list-kv                   # list all keys in KV
+python generate.py --revoke phone-m            # delete phone-m configs from KV
+python generate.py --purge-kv                  # delete everything from KV
 ```
 
 Add new user:
@@ -378,6 +471,9 @@ Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
 Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services (coturn, mail).
 
 Native service configs:
+- system → `/etc/ssh/sshd_config`, `/etc/sysctl.d/`, `/etc/systemd/network/`, `/etc/systemd/journald.conf`, systemd timers
+- firewall → `/etc/firewalld/zones/`
+- backup → `/root/scripts/backup.sh`, systemd service + timer
 - coturn → `/etc/turnserver/turnserver.conf`
 - wireguard → `/etc/wireguard/wg0.conf`
 - mail → `/etc/postfix/`, `/etc/dovecot/`, `/etc/opendkim/`
@@ -385,6 +481,34 @@ Native service configs:
 ## Remote server layout
 
 ```text
+/etc/ssh/
+└── sshd_config
+
+/etc/sysctl.d/
+├── 10-default.conf
+└── 11-overcommit_memory.conf
+
+/etc/systemd/
+├── network/10-default.network
+├── journald.conf
+└── system/
+    ├── 10-paccache_user.timer
+    ├── 10-paccache_user.service
+    ├── 10-btrfs_scrub.timer
+    ├── 10-btrfs_scrub.service
+    ├── 10-sysctl_user.timer
+    ├── 10-sysctl_user.service
+    ├── backup.service
+    ├── backup.timer
+    ├── nextcloud-cron_podman.service
+    └── nextcloud-cron_podman.timer
+
+/etc/firewalld/zones/
+├── public.xml
+├── filter-closed.xml
+├── wireguard.xml
+└── trusted.xml
+
 /etc/ssl/
 ├── certs/example.com.crt
 └── private/example.com.key
@@ -410,6 +534,9 @@ Native service configs:
 
 /etc/opendkim/
 └── opendkim.conf
+
+/root/scripts/
+└── backup.sh
 
 /mail/
 └── example.com/
