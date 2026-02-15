@@ -11,7 +11,7 @@ deployer = ServiceDeployer({
     'secrets_file': BASE / 'secrets' / 'secrets.enc.yaml',
     'multi_instance': True,
     'files': [
-        ('turnserver.conf.j2', '/etc/turnserver/turnserver.conf'),
+        ('turnserver.conf.j2', '/etc/turnserver/turnserver.conf', {'owner': 'root:root', 'mode': '600'}),
     ],
     'setup_dirs': ['/etc/turnserver'],
     'restart_cmd': 'systemctl restart coturn',

@@ -8,11 +8,6 @@ from lib.remote import ssh_run
 BASE = Path(__file__).parent
 REMOTE_BASE = '/opt/podman/nextcloud'
 
-
-def fix_ownership(secrets, target, port):
-    ssh_run(target, f'chown -R 33:33 {REMOTE_BASE}/nextcloud/config', port)
-
-
 deployer = ServiceDeployer({
     'templates_dir': BASE / 'templates',
     'secrets_file': BASE / 'secrets' / 'secrets.enc.yaml',
@@ -22,7 +17,7 @@ deployer = ServiceDeployer({
         ('2-valkey.container.j2', '/etc/containers/systemd/2-valkey.container'),
         ('3-nextcloud-app.container.j2', '/etc/containers/systemd/3-nextcloud-app.container'),
         ('4-nginx.container.j2', '/etc/containers/systemd/4-nginx.container'),
-        ('config.php.j2', f'{REMOTE_BASE}/nextcloud/config/config.php'),
+        ('config.php.j2', f'{REMOTE_BASE}/nextcloud/config/config.php', {'owner': '33:33'}),
         ('nginx.conf.j2', f'{REMOTE_BASE}/nginx.conf'),
     ],
     'setup_dirs': [
@@ -30,7 +25,6 @@ deployer = ServiceDeployer({
         f'{REMOTE_BASE}/db',
         f'{REMOTE_BASE}/log',
     ],
-    'secrets_hooks': [fix_ownership],
     'restart_cmd': 'systemctl daemon-reload && systemctl restart nextcloud-pod',
 })
 
