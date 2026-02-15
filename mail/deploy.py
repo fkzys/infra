@@ -8,13 +8,10 @@ from lib.remote import ssh_run
 BASE = Path(__file__).parent
 
 
-def fix_permissions(secrets, target, port):
+def after_hook(secrets, target, port):
     sel = secrets['common']['dkim_selector']
     ssh_run(target, (
-        f'chmod 600 /etc/postfix/dkim/{sel}.private '
-        f'&& chown opendkim:opendkim /etc/postfix/dkim/{sel}.private '
-        '&& chmod 600 /etc/dovecot/virtual-users '
-        '&& postmap lmdb:/etc/postfix/vmailbox '
+        'postmap /etc/postfix/vmailbox '
         '&& newaliases'
     ), port)
 
@@ -30,17 +27,18 @@ deployer = ServiceDeployer({
         ('keytable.j2', '/etc/postfix/dkim/keytable'),
         ('signingtable.j2', '/etc/postfix/dkim/signingtable'),
         ('dkim_key.j2',
-         lambda s: f'/etc/postfix/dkim/{s["common"]["dkim_selector"]}.private'),
+         lambda s: f'/etc/postfix/dkim/{s["common"]["dkim_selector"]}.private',
+         {'owner': 'opendkim:opendkim', 'mode': '600'}),
         ('opendkim.conf.j2', '/etc/opendkim/opendkim.conf'),
         ('dovecot.conf.j2', '/etc/dovecot/dovecot.conf'),
-        ('virtual_users.j2', '/etc/dovecot/virtual-users'),
+        ('virtual_users.j2', '/etc/dovecot/virtual-users', '600'),
     ],
     'setup_dirs': [
         '/etc/postfix/dkim',
         '/etc/opendkim',
         '/etc/dovecot',
     ],
-    'secrets_hooks': [fix_permissions],
+    'secrets_hooks': [after_hook],
     'restart_cmd': 'systemctl restart postfix dovecot opendkim',
 })
 
