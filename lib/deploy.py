@@ -26,6 +26,29 @@ def resolve_target(hosts: dict, host_ref: str) -> tuple[str, int]:
     return f"{user}@{h['address']}", port
 
 
+def _fmt_opts(opts: dict) -> str:
+    if not opts:
+        return ''
+    parts = []
+    if 'owner' in opts:
+        parts.append(opts['owner'])
+    if 'mode' in opts:
+        parts.append(opts['mode'])
+    return f' ({", ".join(parts)})' if parts else ''
+
+
+def _apply_opts(opts: dict, rp: str, target: str, port: int):
+    if not opts:
+        return
+    cmds = []
+    if 'owner' in opts:
+        cmds.append(f'chown {opts["owner"]} {rp}')
+    if 'mode' in opts:
+        cmds.append(f'chmod {opts["mode"]} {rp}')
+    if cmds:
+        ssh_run(target, ' && '.join(cmds), port)
+
+
 class ServiceDeployer:
     def __init__(self, config: dict):
         self.files = config['files']
@@ -61,24 +84,21 @@ class ServiceDeployer:
         return secrets
 
     def _parse_file_entry(self, entry, secrets):
-        if len(entry) == 3:
-            tpl, remote_path, mode = entry
-        else:
-            tpl, remote_path = entry
-            mode = None
+        tpl = entry[0]
+        remote_path = entry[1]
+        opts = entry[2] if len(entry) == 3 else {}
         if callable(remote_path):
             remote_path = remote_path(secrets)
-        return tpl, remote_path, mode
+        return tpl, remote_path, opts
 
     def render(self, secrets, env, instance_name=None):
         ctx = self._build_context(secrets, instance_name)
         label = instance_name or self._get_host_ref(secrets)
         print(f"\033[1;36m── {label} ──\033[0m")
         for entry in self.files:
-            tpl, rp, mode = self._parse_file_entry(entry, secrets)
+            tpl, rp, opts = self._parse_file_entry(entry, secrets)
             name = tpl.removesuffix('.j2')
-            mode_str = f' ({mode})' if mode else ''
-            print(f"\033[1;33m═══ {name} → {rp}{mode_str} ═══\033[0m")
+            print(f"\033[1;33m═══ {name} → {rp}{_fmt_opts(opts)} ═══\033[0m")
             print(env.get_template(tpl).render(**ctx))
             print()
 
@@ -88,14 +108,14 @@ class ServiceDeployer:
         label = instance_name or self._get_host_ref(secrets)
         print(f"\033[1;36m── {label} ({target}) ──\033[0m")
         for entry in self.files:
-            tpl, rp, mode = self._parse_file_entry(entry, secrets)
+            tpl, rp, opts = self._parse_file_entry(entry, secrets)
             name = tpl.removesuffix('.j2')
             rendered = env.get_template(tpl).render(**ctx)
             remote_content = ssh_read_file(target, rp, port)
             if rendered == remote_content:
-                print(f"  \033[0;32m✓\033[0m {name}")
+                print(f"  \033[0;32m✓\033[0m {name}{_fmt_opts(opts)}")
             else:
-                print(f"  \033[1;33m→\033[0m {name} differs")
+                print(f"  \033[1;33m→\033[0m {name} differs{_fmt_opts(opts)}")
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as lf, \
                      tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as rf:
                     lf.write(rendered); lf.flush()
@@ -116,7 +136,7 @@ class ServiceDeployer:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
             for entry in self.files:
-                tpl, rp, mode = self._parse_file_entry(entry, secrets)
+                tpl, rp, opts = self._parse_file_entry(entry, secrets)
                 rendered = env.get_template(tpl).render(**ctx)
                 local_file = tmpdir / tpl.removesuffix('.j2')
                 local_file.write_text(rendered)
@@ -125,8 +145,7 @@ class ServiceDeployer:
                     changed = True
                 else:
                     print(f"  \033[0;32m✓\033[0m {tpl.removesuffix('.j2')} unchanged")
-                if mode:
-                    ssh_run(target, f'chmod {mode} {rp}', port)
+                _apply_opts(opts, rp, target, port)
 
         for hook in self.secrets_hooks:
             hook(secrets, target, port)
