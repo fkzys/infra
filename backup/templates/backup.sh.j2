@@ -1,0 +1,48 @@
+#!/bin/bash
+set -euo pipefail
+export HOME=/root
+
+SNAP_NC="/opt/podman/nextcloud-snap"
+SNAP_SY="/opt/podman/synapse-snap"
+
+cleanup() {
+  btrfs subvolume delete "$SNAP_NC" 2>/dev/null || true
+  btrfs subvolume delete "$SNAP_SY" 2>/dev/null || true
+  kopia repo disconnect 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# btrfs snapshots
+btrfs subvolume snapshot /opt/podman/nextcloud "$SNAP_NC"
+btrfs subvolume snapshot /opt/podman/synapse "$SNAP_SY"
+
+# clean nextcloud snapshot — keep only data, config, custom_apps
+find "$SNAP_NC/nextcloud" -mindepth 1 \
+  ! -path "$SNAP_NC/nextcloud/custom_apps" \
+  ! -path "$SNAP_NC/nextcloud/custom_apps/*" \
+  ! -path "$SNAP_NC/nextcloud/data" \
+  ! -path "$SNAP_NC/nextcloud/data/*" \
+  ! -path "$SNAP_NC/nextcloud/config" \
+  ! -path "$SNAP_NC/nextcloud/config/config.php" \
+  -delete 2>/dev/null || true
+rm -f "$SNAP_NC/log/"*
+
+{% for repo in backup.repositories %}
+echo "=== {{ repo.name }} ==="
+kopia repo connect s3 \
+  --endpoint="{{ repo.endpoint }}" \
+  --bucket="{{ repo.bucket }}" \
+  --prefix="{{ repo.prefix }}" \
+  --region="{{ repo.region }}" \
+  --access-key="{{ repo.access_key }}" \
+  --secret-access-key="{{ repo.secret_key }}" \
+  -p "{{ backup.kopia_password }}" \
+  --override-hostname="{{ backup.hostname }}" \
+  --override-username="root"
+
+kopia snapshot create "$SNAP_NC"
+kopia snapshot create "$SNAP_SY"
+kopia repo disconnect
+
+{% endfor %}
+echo "=== backup complete ==="
