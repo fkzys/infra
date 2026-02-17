@@ -1,0 +1,53 @@
+config interface 'loopback'
+    option device 'lo'
+    option proto 'static'
+    option ipaddr '127.0.0.1'
+    option netmask '255.0.0.0'
+
+config globals 'globals'
+    option ula_prefix '{{ router.network.ula_prefix }}'
+    option packet_steering '1'
+
+config device
+    option name 'br-lan'
+    option type 'bridge'
+{% for port in router.network.lan_ports %}
+    list ports '{{ port }}'
+{% endfor %}
+
+config interface 'lan'
+    option device 'br-lan'
+    option proto 'static'
+    option ip6assign '60'
+    option ipaddr '{{ router.network.lan_ipaddr }}'
+    option netmask '{{ router.network.lan_netmask }}'
+
+config device
+    option name 'wan'
+    option macaddr '{{ router.network.wan_mac }}'
+
+config interface 'wan'
+    option device 'wan'
+    option proto 'dhcp'
+
+config interface 'wan6'
+    option device 'wan'
+    option proto 'dhcpv6'
+    option reqaddress 'force'
+    option reqprefix 'auto'
+
+{% for route in router.network.static_routes | default([]) %}
+config route
+    option interface '{{ route.interface }}'
+    option target '{{ route.target }}'
+    option gateway '{{ route.gateway }}'
+{% if route.disabled | default(false) %}
+    option disabled '1'
+{% endif %}
+
+{% endfor %}
+config interface 'guest'
+    option proto 'static'
+    option ipaddr '{{ router.network.guest_ipaddr }}'
+    option netmask '{{ router.network.guest_netmask }}'
+    option ip6assign '60'

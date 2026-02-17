@@ -1,0 +1,95 @@
+table ip xray {
+    set ipv4set {
+        typeof ip daddr
+        flags interval
+        elements = {
+        0.0.0.0/8,
+        100.64.0.0/10,
+        127.0.0.1/32,
+        169.254.0.0/16,
+        192.0.0.0/24,
+        192.0.2.0/24,
+        192.88.99.0/24,
+        198.18.0.0/15,
+        198.51.100.0/24,
+        203.0.113.0/24,
+        224.0.0.0/4,
+        240.0.0.0/4,
+{% for ip in shared.nftables.bypass_ipv4 %}
+        {{ ip }},
+{% endfor %}
+        }
+    }
+
+    chain prerouting {
+        type filter hook prerouting priority filter; policy accept;
+        ip daddr @ipv4set return
+        meta l4proto tcp ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } return
+        ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } udp dport != 53 return
+        meta mark 0x000000ff return
+        meta l4proto { tcp, udp } th dport 853 counter reject
+        meta l4proto { tcp, udp } meta mark set 0x00000001 tproxy to 127.0.0.1:{{ shared.nftables.tproxy_port_v4 }} accept
+    }
+
+    chain output {
+        type route hook output priority filter; policy accept;
+        ip daddr @ipv4set return
+        meta l4proto tcp ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } return
+        ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } udp dport != 53 return
+        meta mark 0x000000ff return
+        meta l4proto { tcp, udp } meta mark set 0x00000001 accept
+    }
+}
+table ip filter {
+    chain divert {
+        type filter hook prerouting priority mangle; policy accept;
+        meta l4proto tcp socket transparent 1 meta mark set 0x00000001 accept
+    }
+}
+table ip6 xray {
+    set ipv6set {
+        typeof ip6 daddr
+        flags interval
+        elements = {
+        ::/128,
+        ::1/128,
+        ::ffff:0:0:0/96,
+        64:ff9b::/96,
+        100::/64,
+        2001::/32,
+        2001:20::/28,
+        2001:db8::/32,
+        2002::/16,
+        fe80::/10,
+        ff00::/8,
+{% for ip in shared.nftables.bypass_ipv6 %}
+        {{ ip }},
+{% endfor %}
+        }
+    }
+
+    chain prerouting {
+        type filter hook prerouting priority filter; policy accept;
+        ip6 daddr @ipv6set return
+        meta l4proto tcp ip6 daddr { {{ router.nftables.local_v6 | join(', ') }} } return
+        ip6 daddr { {{ router.nftables.local_v6 | join(', ') }} } udp dport != 53 return
+        meta mark 0x000000ff return
+        meta l4proto { tcp, udp } th dport 853 counter reject
+        meta l4proto { tcp, udp } th dport 53 tproxy to [::1]:{{ shared.nftables.tproxy_port_v6 }} accept
+    }
+
+    chain output {
+        type route hook output priority filter; policy accept;
+        ip6 daddr @ipv6set return
+        meta l4proto tcp ip6 daddr { {{ router.nftables.local_v6 | join(', ') }} } return
+        ip6 daddr { {{ router.nftables.local_v6 | join(', ') }} } udp dport != 53 return
+        meta mark 0x000000ff return
+        meta l4proto { tcp, udp } meta mark set 0x00000001 accept
+    }
+}
+table ip6 filter {
+    chain divert {
+        type filter hook prerouting priority mangle; policy accept;
+        meta l4proto tcp socket transparent 1 meta mark set 0x00000001 accept
+    }
+}

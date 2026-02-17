@@ -1,0 +1,48 @@
+{% for radio in router.radios %}
+config wifi-device '{{ radio.name }}'
+    option type 'mac80211'
+    option path '{{ radio.path }}'
+    option channel '{{ radio.channel }}'
+    option band '{{ radio.band }}'
+    option htmode '{{ radio.htmode }}'
+    option txpower '{{ radio.txpower }}'
+    option cell_density '0'
+    option country '{{ shared.wifi.country }}'
+
+config wifi-iface 'default_{{ radio.name }}'
+    option device '{{ radio.name }}'
+    option network 'lan'
+    option mode 'ap'
+    option ssid '{{ shared.wifi.main.ssid }}'
+    option encryption 'psk2+ccmp'
+    option key '{{ shared.wifi.main.key }}'
+    option ieee80211r '1'
+    option mobility_domain '{{ shared.wifi.main.mobility_domain }}'
+    option ft_over_ds '0'
+    option ieee80211w '{{ radio.main_80211w }}'
+    option ft_psk_generate_local '1'
+    option wpa_disable_eapol_key_retries '1'
+
+{% endfor %}
+{% for radio in router.radios %}
+config wifi-iface 'wifinet{{ loop.index0 + router.radios | length }}'
+    option device '{{ radio.name }}'
+    option mode 'ap'
+    option ssid '{{ shared.wifi.guest.ssid }}'
+    option encryption 'psk2'
+    option key '{{ shared.wifi.guest.key }}'
+    option ieee80211w '2'
+    option network 'guest'
+    option isolate '1'
+    option wpa_disable_eapol_key_retries '1'
+{% if radio.band == '5g' %}
+    option ieee80211r '1'
+    option mobility_domain '{{ shared.wifi.guest.mobility_domain }}'
+    option ft_over_ds '0'
+    option ft_psk_generate_local '1'
+{% endif %}
+{% if radio.guest_disabled | default(false) %}
+    option disabled '1'
+{% endif %}
+
+{% endfor %}
