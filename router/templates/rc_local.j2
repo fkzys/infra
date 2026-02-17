@@ -1,0 +1,7 @@
+#!/bin/sh
+/sbin/ip rule add fwmark {{ shared.ip_rules.fwmark }} table {{ shared.ip_rules.table_v4 }} ; \
+/sbin/ip route add local 0.0.0.0/0 dev lo table {{ shared.ip_rules.table_v4 }} ; \
+/sbin/ip -6 rule add fwmark {{ shared.ip_rules.fwmark }} table {{ shared.ip_rules.table_v6 }} ; \
+/sbin/ip -6 route add local ::/0 dev lo table {{ shared.ip_rules.table_v6 }} ; \
+/usr/sbin/nft -f /etc/nftables/nft-ipv6 ; \
+exit 0

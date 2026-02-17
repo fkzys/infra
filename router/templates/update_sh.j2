@@ -1,0 +1,26 @@
+#!/bin/sh
+TOKEN="{{ router.token }}"
+WORKER="https://{{ cloudflare.worker_domain }}"
+
+download() {
+    local key="$1" dest="$2"
+    wget -4 -q -O "${dest}.tmp" "${WORKER}/${TOKEN}/${key}" && \
+        mv "${dest}.tmp" "$dest" || \
+        { rm -f "${dest}.tmp"; echo "FAIL: $key"; return 1; }
+    echo "OK: $dest"
+}
+
+download nftables.nft      /etc/nftables/nft-ipv6
+download network            /etc/config/network
+download wireless           /etc/config/wireless
+download firewall           /etc/config/firewall
+download dhcp               /etc/config/dhcp
+download system             /etc/config/system
+download rc_local           /etc/rc.local
+download sing_box_init      /etc/init.d/sing-box_my
+
+chmod +x /etc/rc.local
+chmod +x /etc/init.d/sing-box_my
+
+echo ""
+echo "Done. Apply: reboot"
