@@ -1,6 +1,6 @@
 # infra
 
-Infrastructure-as-code for a personal server stack. Podman Quadlet configs, service configs and secrets — all templated, versioned and deployed over SSH.
+Infrastructure-as-code for a personal server stack and home network. Podman Quadlet configs, OpenWrt router configs, service configs and secrets — all templated, versioned and deployed over SSH or distributed via Cloudflare Workers KV.
 
 ## Stack
 
@@ -20,6 +20,7 @@ Infrastructure-as-code for a personal server stack. Podman Quadlet configs, serv
 | `wireguard` | WireGuard mesh + client tunnels (native, no container) |
 | `mail` | Postfix + Dovecot + OpenDKIM ⚠️ legacy, see [note](#mail-legacy) |
 | `sing-box` | Proxy server + client/router config generator with Cloudflare KV distribution |
+| `router` | OpenWrt router configs: nftables tproxy, network, wireless, firewall, dhcp — distributed via KV |
 
 ## Structure
 
@@ -31,7 +32,8 @@ infra/
 │   ├── sops.py
 │   ├── remote.py
 │   ├── jinja.py
-│   └── deploy.py
+│   ├── deploy.py
+│   └── cloudflare.py
 ├── system/
 │   ├── deploy.py
 │   ├── templates/
@@ -84,9 +86,14 @@ infra/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
-└── sing-box/
-    ├── deploy.py              ← server deploy (render/diff/deploy)
-    ├── generate.py            ← client/router config generator + KV
+├── sing-box/
+│   ├── deploy.py              ← server deploy (render/diff/deploy)
+│   ├── generate.py            ← client/router config generator + KV
+│   ├── templates/
+│   ├── secrets/
+│   └── output/                ← gitignored
+└── router/
+    ├── generate.py            ← OpenWrt config generator + KV
     ├── templates/
     ├── secrets/
     └── output/                ← gitignored
@@ -100,7 +107,7 @@ Each service has:
 - `secrets/` — SOPS-encrypted YAML with passwords, domains, keys
 - `deploy.py` — thin config that plugs into `lib/deploy.py`
 
-Deploy flow:
+### Server deploy flow
 
 1. Decrypts secrets with SOPS
 2. Resolves SSH target from `secrets/hosts.enc.yaml`
@@ -109,16 +116,26 @@ Deploy flow:
 5. Applies file ownership/permissions if specified (`owner`, `mode` in file config)
 6. Restarts systemd units only if something changed
 
+### Router/client config flow
+
+`sing-box/generate.py` and `router/generate.py` use a different delivery model — configs are rendered locally, uploaded to Cloudflare Workers KV, and pulled by devices over HTTPS:
+
+```
+sops decrypt → jinja render → KV upload → device wget/curl
+```
+
+This avoids SSH to constrained devices (OpenWrt routers, phones) while keeping configs versioned and secrets encrypted at rest.
+
 ## File permissions
 
 Files in the `files` list support an optional third element — a dict with `owner` and/or `mode`:
 
 ```python
 'files': [
-    ('config.yml.j2', '/opt/podman/myservice/config.yml'),                                          # no perms
-    ('wg0.conf.j2', '/etc/wireguard/wg0.conf', {'owner': 'root:root', 'mode': '600'}),             # both
-    ('config.php.j2', '/opt/podman/nextcloud/config.php', {'owner': '33:33'}),                      # owner only
-    ('backup.sh.j2', '/root/scripts/backup.sh', {'owner': 'root:root', 'mode': '700'}),            # script
+    ('config.yml.j2', '/opt/podman/myservice/config.yml'),                           # no perms
+    ('wg0.conf.j2', '/etc/wireguard/wg0.conf', {'owner': 'root:root', 'mode': '600'}),   # both
+    ('config.php.j2', '/opt/podman/nextcloud/config.php', {'owner': '33:33'}),            # owner only
+    ('backup.sh.j2', '/root/scripts/backup.sh', {'owner': 'root:root', 'mode': '700'}),  # script
 ]
 ```
 
@@ -160,11 +177,15 @@ Services deployed to **one server** (synapse, nextcloud, element, jitsi, backup)
 
 Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, mail, sing-box, system, firewall) have `instances:` with a `host:` reference per instance and support `--all`.
 
+**Router** uses a different model — multiple routers defined under `routers:` in secrets, configs delivered via KV instead of SSH.
+
 ## Containerized vs native
 
 Most services run as **Podman containers** managed via Quadlet units.
 
 **coturn**, **wireguard**, **mail**, **system**, and **firewall** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, kernel-level interfaces (WireGuard), or tight integration with system sockets (coturn UDP relay, Postfix/Dovecot SASL). Only config files are deployed, no Quadlet units.
+
+**Router** configs are native OpenWrt UCI/nftables files — no containers involved.
 
 ## Prerequisites
 
@@ -199,6 +220,7 @@ sops sing-box/secrets/secrets.enc.yaml
 sops system/secrets/secrets.enc.yaml
 sops firewall/secrets/secrets.enc.yaml
 sops backup/secrets/secrets.enc.yaml
+sops router/secrets/secrets.enc.yaml
 ```
 
 ### hosts.enc.yaml
@@ -401,6 +423,56 @@ instances:
         allowed_ips: ["...::5/128"]
 ```
 
+### router secrets
+
+```yaml
+cloudflare:
+  account_id: "..."
+  api_token: "..."
+  kv_namespace_id: "..."
+  worker_domain: "..."
+
+shared:
+  timezone: "UTC-2"
+  zonename: "Afrika/Juba"
+  wifi:
+    country: "PA"
+    main:
+      ssid: "main"
+      key: "..."
+      mobility_domain: "4f11"
+    guest:
+      ssid: "guest"
+      key: "..."
+  sing_box:
+    binary: "/root/sing-box"
+    config_dir: "/etc/sing-box"
+    files:
+      - main.json
+      - sing-box_anytls.json
+      - sing-box_vless_grpc.json
+      - sing-box_vless_ws.json
+      - sing-box_vless_httpupgrade.json
+
+routers:
+  router-1:
+    hostname: "OpenWrt"
+    token: "..."
+    sing_box_token: "..."
+    network:
+      wan_mac: "..."
+      lan_ipaddr: "192.168.x.1"
+      ...
+    nftables:
+      local_v6: [...]
+    dhcp:
+      router_ipv4: "..."
+      router_ula: "..."
+      static_hosts: [...]
+    radios: [...]
+    leds: [...]
+```
+
 ## Usage
 
 ### Single-instance (synapse, nextcloud, element, jitsi, backup)
@@ -460,6 +532,27 @@ Add new user:
 3. `python generate.py --upload`
 4. Send URL from `output/urls.md`
 
+### Router configs
+
+`router/generate.py` generates OpenWrt configs (nftables, network, wireless, firewall, dhcp, system, init scripts) and uploads to KV. Routers pull configs via `update.sh`.
+
+```bash
+cd router/
+
+python generate.py list                        # list routers
+python generate.py render router-1             # print rendered configs
+python generate.py generate router-1           # generate to output/
+python generate.py generate --upload router-1  # generate + upload to KV
+python generate.py generate --upload --all     # all routers
+```
+
+On the router:
+
+```bash
+sh /root/update.sh                             # pull configs from KV
+reboot                                         # apply
+```
+
 ## What gets deployed where
 
 Quadlet units go to `/etc/containers/systemd/` on remote.
@@ -477,6 +570,12 @@ Native service configs:
 - coturn → `/etc/turnserver/turnserver.conf`
 - wireguard → `/etc/wireguard/wg0.conf`
 - mail → `/etc/postfix/`, `/etc/dovecot/`, `/etc/opendkim/`
+
+Router configs (via KV):
+- nftables → `/etc/nftables/nft-ipv6`
+- network, wireless, firewall, dhcp, system → `/etc/config/`
+- sing-box init → `/etc/init.d/sing-box_my`
+- ip rules → `/etc/rc.local`
 
 ## Remote server layout
 
@@ -578,6 +677,36 @@ Native service configs:
         ├── inbounds.json
         ├── ruleset.json
         └── warp.json
+```
+
+## Router layout
+
+```text
+/etc/config/
+├── network
+├── wireless
+├── firewall
+├── dhcp
+└── system
+
+/etc/nftables/
+└── nft-ipv6
+
+/etc/init.d/
+└── sing-box_my
+
+/etc/rc.local
+
+/etc/sing-box/
+├── main.json
+├── sing-box_anytls.json
+├── sing-box_vless_grpc.json
+├── sing-box_vless_ws.json
+└── sing-box_vless_httpupgrade.json
+
+/root/
+├── sing-box
+└── update.sh
 ```
 
 ## Adding a new service
