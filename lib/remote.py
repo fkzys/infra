@@ -27,7 +27,13 @@ def rsync_file(local: Path, target: str, remote: str, port: int = 22) -> bool:
          str(local), f'{target}:{remote}'],
         capture_output=True, text=True
     )
-    return bool(result.stdout.strip())
+    for line in result.stdout.strip().splitlines():
+        # itemize format: YXcstpoguax
+        # [0]='<' sent, [2]='c' checksum differs, [3]='s' size differs
+        # A truly unchanged file produces no output or dots-only flags
+        if line and line[0] in '<>' and ('c' in line[1:11] or 's' in line[1:11]):
+            return True
+    return False
 
 
 def write_secret_remote(target: str, content: str, path: str, port: int = 22) -> None:
