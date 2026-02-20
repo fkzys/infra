@@ -1,4 +1,4 @@
-table ip xray {
+table ip {{ shared.nftables.table_name_v4 }} {
     set ipv4set {
         typeof ip daddr
         flags interval
@@ -40,13 +40,13 @@ table ip xray {
         meta l4proto { tcp, udp } meta mark set 0x00000001 accept
     }
 }
-table ip filter {
+table ip {{ shared.nftables.divert_table_name_v4 }} {
     chain divert {
         type filter hook prerouting priority mangle; policy accept;
         meta l4proto tcp socket transparent 1 meta mark set 0x00000001 accept
     }
 }
-table ip6 xray {
+table ip6 {{ shared.nftables.table_name_v6 }} {
     set ipv6set {
         typeof ip6 daddr
         flags interval
@@ -87,7 +87,7 @@ table ip6 xray {
         meta l4proto { tcp, udp } meta mark set 0x00000001 accept
     }
 }
-table ip6 filter {
+table ip6 {{ shared.nftables.divert_table_name_v6 }} {
     chain divert {
         type filter hook prerouting priority mangle; policy accept;
         meta l4proto tcp socket transparent 1 meta mark set 0x00000001 accept

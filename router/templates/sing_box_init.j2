@@ -16,19 +16,27 @@ update_configs() {
 }
 
 start_service() {
+    nft flush chain ip {{ shared.nftables.table_name_v4 }} output 2>/dev/null
+    nft flush chain ip6 {{ shared.nftables.table_name_v6 }} output 2>/dev/null
+
     update_configs
 
-    procd_open_instance "sing-box_service"
+    nft -f /etc/nftables.d/singbox.nft 2>/dev/null
 
+    procd_open_instance "sing-box_service"
     procd_set_param command {{ shared.sing_box.binary }}
     procd_append_param command run -C "$CONFIG_DIR"
     procd_set_param limits core="unlimited"
     procd_set_param limits nofile="1000000 1000000"
-
     procd_close_instance
 }
 
 reload_service() {
-    stop
-    start
+    update_configs
+
+    if {{ shared.sing_box.binary }} check -C "$CONFIG_DIR" 2>/dev/null; then
+        kill -HUP $(pgrep -f "sing-box.*run")
+    else
+        logger -t sing-box "bad config, skipping reload"
+    fi
 }

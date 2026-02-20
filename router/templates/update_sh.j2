@@ -10,17 +10,17 @@ download() {
     echo "OK: $dest"
 }
 
-download nftables.nft      /etc/nftables/nft-ipv6
+download nftables.nft      /etc/nftables.d/sing-box.nft
 download network            /etc/config/network
 download wireless           /etc/config/wireless
 download firewall           /etc/config/firewall
 download dhcp               /etc/config/dhcp
 download system             /etc/config/system
 download rc_local           /etc/rc.local
-download sing_box_init      /etc/init.d/sing-box_my
+download sing_box_init      /etc/init.d/sing-box
 
 chmod +x /etc/rc.local
-chmod +x /etc/init.d/sing-box_my
+chmod +x /etc/init.d/sing-box
 
 echo ""
 echo "Done. Apply: reboot"
