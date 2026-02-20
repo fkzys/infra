@@ -25,7 +25,7 @@
         "server": "local"
       },
       {
-        "rule_set": ["main", "youtube"],
+        "rule_set": ["router", "youtube"],
         "server": "dns-cloudflare",
         "strategy": "ipv4_only"
       }
@@ -74,7 +74,7 @@
     "rule_set": [
       {
         "type": "remote",
-        "tag": "main",
+        "tag": "router",
         "format": "binary",
         "update_interval": "10m",
         "url": "{{ srs.router.link }}"
@@ -92,7 +92,7 @@
       {"protocol": "dns", "action": "hijack-dns"},
       {"port": [123], "outbound": "direct"},
       {
-        "rule_set": ["main", "youtube"],
+        "rule_set": ["router", "youtube"],
         "outbound": "anytls-balancer"
       }
     ]
