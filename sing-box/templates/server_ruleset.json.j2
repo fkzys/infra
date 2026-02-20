@@ -18,13 +18,14 @@
         "update_interval": "10m0s"
       },
 {% set static_rulesets = [
-    ('geosite-openai', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs'),
-    ('geosite-category-gov-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-gov-ru.srs'),
+    ('openai', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs'),
+    ('category-gov-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-gov-ru.srs'),
     ('geosite-cn', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs'),
-    ('geosite-category-porn', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-porn.srs'),
+    ('category-porn', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-porn.srs'),
     ('youtube', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs'),
     ('geoip-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs'),
-    ('geoip-cn', 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs')
+    ('geoip-cn', 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs'),
+    ('reddit', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-reddit.srs')
 ] %}
 {% for tag, url in static_rulesets %}
       {
