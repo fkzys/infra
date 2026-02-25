@@ -10,6 +10,7 @@ def ssh_run(target: str, cmd: str, port: int = 22) -> None:
     )
     if result.returncode != 0:
         print(f"  SSH error: {result.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
 
 
 def ssh_read_file(target: str, path: str, port: int = 22) -> str:

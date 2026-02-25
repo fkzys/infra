@@ -116,8 +116,8 @@ class ServiceDeployer:
                 print(f"  \033[0;32m✓\033[0m {name}{_fmt_opts(opts)}")
             else:
                 print(f"  \033[1;33m→\033[0m {name} differs{_fmt_opts(opts)}")
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as lf, \
-                     tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as rf:
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.txt') as lf, \
+                     tempfile.NamedTemporaryFile(mode='w', suffix='.txt') as rf:
                     lf.write(rendered); lf.flush()
                     rf.write(remote_content); rf.flush()
                     subprocess.run(['diff', '--color', '-u', rf.name, lf.name])
