@@ -4,12 +4,12 @@ on:
   push:
     paths:
       - 'lib/**'
-      - 'tests/**'
+      - 'tests/*.py'
       - '.github/workflows/ci.yml'
   pull_request:
     paths:
       - 'lib/**'
-      - 'tests/**'
+      - 'tests/*.py'
       - '.github/workflows/ci.yml'
 
 jobs:
