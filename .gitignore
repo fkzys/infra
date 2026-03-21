@@ -1,5 +1,5 @@
 sing-box/deprecated
 sing-box/output
 router/output
-lib/__pycache__
+*__pycache__*
 certs/.certstore/
