@@ -55,6 +55,9 @@
       "server": "{{ inst.address }}",
       "server_port": 443,
       "password": "{{ current_user.password }}",
+      "idle_session_timeout": "120s",
+      "idle_session_check_interval": "60s",
+      "min_idle_session": 2,
       "tls": {
         "enabled": true,
         "server_name": "{{ reality.server_name }}",
