@@ -272,7 +272,6 @@ def generate_router_configs(secrets, env, users, uploader=None):
         users: pre-filtered list of router users
     """
     if not users:
-        print("⚠ No router users to generate", file=sys.stderr)
         return {}
 
     vless_transports = [
@@ -350,13 +349,15 @@ def cmd_generate(args):
 
     if 'all' in targets or 'clients' in targets:
         client_users = filter_users(secrets, args.user, user_type='client')
-        all_urls['clients'] = generate_client_configs(
-            secrets, env, client_users, uploader)
+        if client_users:
+            all_urls['clients'] = generate_client_configs(
+                secrets, env, client_users, uploader)
 
     if 'all' in targets or 'router' in targets:
         router_users = filter_users(secrets, args.user, user_type='router')
-        all_urls['routers'] = generate_router_configs(
-            secrets, env, router_users, uploader)
+        if router_users:
+            all_urls['routers'] = generate_router_configs(
+                secrets, env, router_users, uploader)
 
     if uploader:
         save_urls(all_urls)
