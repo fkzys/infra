@@ -105,7 +105,7 @@ def save_urls(urls):
     urls_file.write_text(json.dumps(existing, indent=2, ensure_ascii=False))
     print(f"\n📋 URLs saved to: {urls_file}")
 
-    # Regenerate full .md from merged data
+    # Regenerate full .md from merged data, preserving insertion order
     readme_file = OUTPUT_DIR / 'urls.md'
     with open(readme_file, 'w') as f:
         f.write("# Config URLs\n\n")
@@ -113,16 +113,13 @@ def save_urls(urls):
         f.write("⚠️ **Keep these URLs private!**\n\n")
         if existing.get('clients'):
             f.write("## Clients\n\n")
-            for name in sorted(existing['clients']):
-                url = existing['clients'][name]
+            for name, url in existing['clients'].items():
                 f.write(f"### {name}\n```\n{url}\n```\n\n")
         if existing.get('routers'):
             f.write("## Routers\n\n")
-            for router_name in sorted(existing['routers']):
-                router_urls = existing['routers'][router_name]
+            for router_name, router_urls in existing['routers'].items():
                 f.write(f"### {router_name}\n\n")
-                for config_type in sorted(router_urls):
-                    url = router_urls[config_type]
+                for config_type, url in router_urls.items():
                     f.write(f"**{config_type}:**\n```\n{url}\n```\n\n")
     print(f"📋 URLs readme: {readme_file}")
 
