@@ -13,7 +13,7 @@ Volume=/opt/podman/traefik/settings:/etc/traefik
 Volume=/opt/podman/traefik/logs:/etc/traefik/logs
 Volume=/etc/ssl/certs:/etc/ssl/certs:ro
 Volume=/etc/ssl/private:/etc/ssl/private:ro
-Environment=TZ="Europe/Moscow"
+Volume=/etc/localtime:/etc/localtime:ro
 
 [Service]
 Restart=always

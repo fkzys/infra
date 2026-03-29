@@ -10,7 +10,7 @@ Environment=MYSQL_PASSWORD={{ nextcloud.mysql_password }}
 Environment=MYSQL_DATABASE=nextcloud
 Environment=MYSQL_USER=nextcloud
 Volume=/opt/podman/nextcloud/db:/var/lib/mysql
-Environment=TZ=Europe/Moscow
+Volume=/etc/localtime:/etc/localtime:ro
 
 [Service]
 Restart=always

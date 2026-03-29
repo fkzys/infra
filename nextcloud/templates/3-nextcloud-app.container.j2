@@ -10,7 +10,7 @@ Environment=MYSQL_DATABASE=nextcloud
 Environment=MYSQL_USER=nextcloud
 Environment=MYSQL_HOST=nextcloud_db_1
 Environment=REDIS_HOST=nextcloud_valkey_1
-Environment=TZ=Europe/Moscow
+Volume=/etc/localtime:/etc/localtime:ro
 Volume=/opt/podman/nextcloud/nextcloud:/var/www/html
 Volume=/opt/podman/nextcloud/log:/var/log/nextcloud
 
