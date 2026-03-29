@@ -9,7 +9,7 @@ Exec=-D /var/lib/sing-box -C /etc/sing-box/ run
 AutoUpdate=registry
 Volume={{ current_instance.volume_path }}:/etc/sing-box:ro
 Volume={{ current_instance.volume_path }}/cache:/etc/sing-box/cache
-Environment=TZ="Europe/Moscow"
+Volume=/etc/localtime:/etc/localtime:ro
 
 Label=traefik.enable=true
 Label=traefik.tcp.routers.sing-box_vless.entryPoints=https

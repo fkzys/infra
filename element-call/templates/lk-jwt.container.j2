@@ -10,7 +10,7 @@ Environment=LIVEKIT_URL=wss://{{ livekit.rtc_domain }}/livekit/sfu
 Environment=LIVEKIT_KEY={{ livekit.key }}
 Environment=LIVEKIT_SECRET={{ livekit.secret }}
 Environment=LIVEKIT_FULL_ACCESS_HOMESERVERS={{ synapse.server_name }}
-Environment=TZ="Europe/Moscow"
+Volume=/etc/localtime:/etc/localtime:ro
 Label=traefik.enable=true
 Label=traefik.http.routers.lk-jwt.entryPoints=https
 Label=traefik.http.routers.lk-jwt.rule=Host(`{{ livekit.rtc_domain }}`)&&PathPrefix(`/livekit/jwt`)

@@ -5,7 +5,7 @@ Description=Valkey container
 Image=docker.io/valkey/valkey:latest
 Pod=nextcloud.pod
 ContainerName=nextcloud_valkey_1
-Environment=TZ=Europe/Moscow
+Volume=/etc/localtime:/etc/localtime:ro
 
 [Service]
 Restart=always

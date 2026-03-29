@@ -7,7 +7,7 @@ ContainerName=livekit_sfu_1
 Pod=element-call.pod
 Exec=--config /etc/livekit.yaml
 Volume=/opt/podman/element-call/config/livekit.yaml:/etc/livekit.yaml:ro,Z
-Environment=TZ="Europe/Moscow"
+Volume=/etc/localtime:/etc/localtime:ro
 Label=traefik.enable=true
 Label=traefik.http.routers.livekit-sfu.entryPoints=https
 Label=traefik.http.routers.livekit-sfu.rule=Host(`{{ livekit.rtc_domain }}`)&&PathPrefix(`/livekit/sfu`)

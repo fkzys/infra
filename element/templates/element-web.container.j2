@@ -5,7 +5,7 @@ Description=element-web container
 Image=docker.io/vectorim/element-web
 ContainerName=element-web
 Volume=/opt/podman/element_synapse_admin/element_config.json:/app/config.json:ro
-Environment=TZ="Europe/Moscow"
+Volume=/etc/localtime:/etc/localtime:ro
 Environment=ELEMENT_WEB_PORT="8080"
 AutoUpdate=registry
 Label=traefik.enable=true
