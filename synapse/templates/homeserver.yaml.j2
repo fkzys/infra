@@ -8,7 +8,7 @@ listeners:
     type: http
     x_forwarded: true
     resources:
-      - names: [client]
+      - names: [client, openid]
         compress: false
 
 log_config: "/data/{{ synapse.server_name }}.log.config"
@@ -20,6 +20,11 @@ trusted_key_servers:
 
 public_baseurl: "https://{{ synapse.server_name }}"
 serve_server_wellknown: true
+
+extra_well_known_client_content:
+  "org.matrix.msc4143.rtc_foci":
+    - type: "livekit"
+      livekit_service_url: "https://{{ synapse.matrix_rtc_domain }}/livekit/jwt"
 
 database:
   name: psycopg2
@@ -39,6 +44,11 @@ enable_registration: false
 
 registration_shared_secret: "{{ synapse.registration_shared_secret }}"
 
+experimental_features:
+  msc4222_enabled: true
+
+max_event_delay_duration: 24h
+
 retention:
   enabled: true
   default_policy:
@@ -56,13 +66,6 @@ media_retention:
 user_directory:
   search_all_users: true
   prefer_local_users: true
-
-turn_uris:
-{% for uri in synapse.turn_uris %}
-  - "{{ uri }}"
-{% endfor %}
-turn_shared_secret: "{{ synapse.turn_shared_secret }}"
-turn_user_lifetime: 86400000
 
 admin_users:
   - "@synapse-admin:{{ synapse.server_name }}"
@@ -85,3 +88,7 @@ rc_admin_redaction:
 rc_message:
   per_second: 10
   burst_count: 25
+
+rc_delayed_event_mgmt:
+  per_second: 1
+  burst_count: 20

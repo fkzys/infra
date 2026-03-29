@@ -21,7 +21,6 @@ Label=traefik.http.routers.https-metrics.middlewares=secure-header@file,blacklis
 Label=traefik.http.routers.https-metrics.service=metrics
 Label=traefik.http.routers.https-metrics.tls=true
 Label=traefik.http.routers.https-metrics.tls.domains[0].main={{ instance.domain }}
-Label=traefik.http.routers.https-metrics.tls.domains[0].sans={{ common.ech_domain }}
 Label=traefik.http.services.metrics.loadbalancer.server.port=3000
 
 [Service]
