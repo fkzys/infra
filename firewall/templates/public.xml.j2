@@ -21,5 +21,9 @@
 {% if instance.wg_endpoint | default(false) %}
   <port protocol="udp" port="{{ common.wg_port }}"/>
 {% endif %}
+{% if instance.livekit | default(false) %}
+  <port protocol="tcp" port="7881"/>
+  <port protocol="udp" port="50100-50200"/>
+{% endif %}
   <forward/>
 </zone>

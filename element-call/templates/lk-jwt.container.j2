@@ -1,0 +1,27 @@
+[Unit]
+Description=LiveKit JWT auth service
+
+[Container]
+Image=ghcr.io/element-hq/lk-jwt-service:latest
+ContainerName=lk_jwt_1
+Pod=element-call.pod
+Environment=LK_JWT_PORT=8080
+Environment=LIVEKIT_URL=wss://{{ livekit.rtc_domain }}/livekit/sfu
+Environment=LIVEKIT_KEY={{ livekit.key }}
+Environment=LIVEKIT_SECRET={{ livekit.secret }}
+Environment=LIVEKIT_FULL_ACCESS_HOMESERVERS={{ synapse.server_name }}
+Environment=TZ="Europe/Moscow"
+Label=traefik.enable=true
+Label=traefik.http.routers.lk-jwt.entryPoints=https
+Label=traefik.http.routers.lk-jwt.rule=Host(`{{ livekit.rtc_domain }}`)&&PathPrefix(`/livekit/jwt`)
+Label=traefik.http.routers.lk-jwt.tls=true
+Label=traefik.http.routers.lk-jwt.tls.domains[0].main={{ livekit.rtc_domain }}
+Label=traefik.http.routers.lk-jwt.middlewares=lk-jwt-strip,secure-header@file
+Label=traefik.http.services.lk-jwt.loadbalancer.server.port=8080
+Label=traefik.http.middlewares.lk-jwt-strip.stripPrefix.prefixes=/livekit/jwt
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

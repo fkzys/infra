@@ -1,0 +1,24 @@
+[Unit]
+Description=LiveKit SFU container
+
+[Container]
+Image=docker.io/livekit/livekit-server:latest
+ContainerName=livekit_sfu_1
+Pod=element-call.pod
+Exec=--config /etc/livekit.yaml
+Volume=/opt/podman/element-call/config/livekit.yaml:/etc/livekit.yaml:ro,Z
+Environment=TZ="Europe/Moscow"
+Label=traefik.enable=true
+Label=traefik.http.routers.livekit-sfu.entryPoints=https
+Label=traefik.http.routers.livekit-sfu.rule=Host(`{{ livekit.rtc_domain }}`)&&PathPrefix(`/livekit/sfu`)
+Label=traefik.http.routers.livekit-sfu.tls=true
+Label=traefik.http.routers.livekit-sfu.tls.domains[0].main={{ livekit.rtc_domain }}
+Label=traefik.http.routers.livekit-sfu.middlewares=livekit-sfu-strip,secure-header@file
+Label=traefik.http.services.livekit-sfu.loadbalancer.server.port=7880
+Label=traefik.http.middlewares.livekit-sfu-strip.stripPrefix.prefixes=/livekit/sfu
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

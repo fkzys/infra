@@ -18,7 +18,6 @@ Label=traefik.http.routers.https-element-web.middlewares=secure-header@file
 Label=traefik.http.routers.https-element-web.service=element-web
 Label=traefik.http.routers.https-element-web.tls=true
 Label=traefik.http.routers.https-element-web.tls.domains[0].main={{ element.element_domain }}
-Label=traefik.http.routers.https-element-web.tls.domains[0].sans={{ element.ech_domain }}
 Label=traefik.http.services.element-web.loadbalancer.server.port=8080
 
 [Service]

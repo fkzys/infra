@@ -26,7 +26,14 @@
     "uisi_autorageshake_app": "element-auto-uisi",
     "default_country_code": "GB",
     "show_labs_settings": false,
-    "features": {},
+    "features": {
+        "feature_group_calls": true,
+        "feature_element_call_video_rooms": true
+    },
+    "element_call": {
+        "url": "https://{{ element.matrix_rtc_domain }}",
+        "use_exclusively": false
+    },
     "default_federate": false,
     "default_theme": "light",
     "room_directory": {
