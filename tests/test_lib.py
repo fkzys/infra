@@ -175,6 +175,13 @@ class TestRemote:
         assert rsync_file(Path("/tmp/f"), "user@host", "/etc/f", 22) is False
 
     @patch("subprocess.run")
+    def test_rsync_new_file_on_remote(self, mock_run):
+        # rsync emits '+' when file doesn't exist on remote yet
+        mock_run.return_value = MagicMock(stdout="<f+++++++++ file.conf\n", returncode=0)
+        from lib.remote import rsync_file
+        assert rsync_file(Path("/tmp/f"), "user@host", "/etc/f", 22) is True
+
+    @patch("subprocess.run")
     def test_write_secret_remote(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         from lib.remote import write_secret_remote
@@ -411,6 +418,17 @@ class TestServiceDeployer:
         assert ctx["common"]["cert"] == "example.com"
         assert ctx["instance"]["domain"] == "d1.example.com"
         assert ctx["instance_name"] == "i1"
+
+    def test_context_custom_instances_key(self, tmp_path):
+        d = self._make_deployer(
+            tmp_path, multi_instance=True, instances_key="relay_instances"
+        )
+        secrets = {
+            "relay_instances": {"r1": {"host": "srv1", "domain": "r1.example.com"}},
+        }
+        ctx = d._build_context(secrets, "r1")
+        assert ctx["instance"]["domain"] == "r1.example.com"
+        assert ctx["instance_name"] == "r1"
 
     def test_context_multi_instance_missing_common(self, tmp_path):
         d = self._make_deployer(tmp_path, multi_instance=True)

@@ -9,7 +9,8 @@
 {% set tag_prefix = tag_prefix | default('vless-ipv4') %}
 {
   "outbounds": [
-{% for name, inst in instances.items() %}
+{% set target = relay_instances if relay_instances else instances %}
+{% for name, inst in target.items() %}
     {
       "type": "vless",
       "tag": "{{ tag_prefix }}-{{ loop.index }}",
@@ -19,7 +20,7 @@
       "flow": "{{ current_user.flow if transport == 'vision' else '' }}",
       "tls": {
         "enabled": true,
-        "server_name": "{{ reality.server_name }}",
+        "server_name": "{{ inst.reality.server_name }}",
         "insecure": false,
         "utls": {
           "enabled": true,

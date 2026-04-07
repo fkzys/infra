@@ -247,7 +247,11 @@ def generate_client_configs(secrets, env, users, uploader=None):
     urls = {}
 
     for user in users:
-        config = render_json(env, 'client.json.j2', {**secrets, 'current_user': user})
+        context = {**secrets, 'current_user': user}
+        # Include relay_instances in context if it exists (clients connect to relays)
+        if 'relay_instances' in secrets:
+            context['relay_instances'] = secrets['relay_instances']
+        config = render_json(env, 'client.json.j2', context)
 
         output_file = clients_dir / f"client_{user['name']}.json"
         output_file.write_text(config)
@@ -284,6 +288,9 @@ def generate_router_configs(secrets, env, users, uploader=None):
         router_dir.mkdir(parents=True, exist_ok=True)
 
         context = {**secrets, 'current_user': router_user}
+        # Include relay_instances in context if it exists (routers connect to relays)
+        if 'relay_instances' in secrets:
+            context['relay_instances'] = secrets['relay_instances']
         router_urls = {}
         token = get_user_token(router_user) if uploader else None
 

@@ -43,12 +43,13 @@
       "type": "urltest",
       "tag": "anytls-balancer",
       "outbounds": [
-{% for name, inst in instances.items() %}
+{% set target = relay_instances if relay_instances else instances %}
+{% for name, inst in target.items() %}
         "anytls-{{ loop.index }}"{{ "," if not loop.last else "" }}
 {% endfor %}
       ]
     },
-{% for name, inst in instances.items() %}
+{% for name, inst in target.items() %}
     {
       "type": "anytls",
       "tag": "anytls-{{ loop.index }}",
@@ -60,7 +61,7 @@
       "min_idle_session": 2,
       "tls": {
         "enabled": true,
-        "server_name": "{{ reality.server_name }}",
+        "server_name": "{{ inst.reality.server_name if inst.reality else reality.server_name }}",
         "utls": {
           "enabled": true,
           "fingerprint": "chrome"

@@ -76,7 +76,8 @@
       "type": "urltest",
       "tag": "{{ balancer_tag }}",
       "outbounds": [
-{% for name, _ in instances.items() %}
+{% set target = relay_instances if relay_instances else instances %}
+{% for name, _ in target.items() %}
         "{{ outbound_prefix }}-{{ loop.index }}"{{ "," if not loop.last else "" }}
 {% endfor %}
       ]
