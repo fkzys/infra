@@ -192,6 +192,64 @@ Auto-renewal via cron:
 0 3 * * * cd /path/to/infra/certs && python deploy.py renew >> /var/log/cert-renew.log 2>&1
 ```
 
+## Multi-instance services with `instances_key`
+
+The `ServiceDeployer` supports deploying multiple instances of the same service from a single secrets file. By default, it looks for an `instances:` key in the secrets, but this can be overridden via `instances_key`:
+
+```python
+# Default — reads secrets['instances']
+deployer = ServiceDeployer({
+    'multi_instance': True,
+})
+
+# Custom key — reads secrets['relay_instances']
+deployer = ServiceDeployer({
+    'multi_instance': True,
+    'instances_key': 'relay_instances',
+})
+```
+
+The CLI (`list`, `render`, `diff`, `deploy --all`) uses this key to enumerate available instances. This allows a single secrets file to manage different logical groups (e.g., proxy nodes and relay nodes) with separate deploy scripts.
+
+### sing-box secrets structure
+
+sing-box uses two instance groups in one secrets file — proxy nodes and relay nodes:
+
+```yaml
+instances:                        # proxy nodes (deployed via deploy.py)
+  instance1:
+    host: server1
+    reality:
+      server_name: "proxy-sni.com"
+    image: "ghcr.io/sagernet/sing-box:latest"
+  instance2:
+    host: server2
+    reality:
+      server_name: "proxy-sni.com"
+    image: "ghcr.io/sagernet/sing-box:latest"
+
+relay_instances:                  # relay nodes (deployed via deploy-relay.py)
+  relay-eu:
+    host: server2
+    address: "..."
+    reality:
+      server_name: "relay-sni.com"
+    image: "ghcr.io/sagernet/sing-box:latest"
+    password: "..."               # relay→proxy authentication
+    short_id: "..."
+
+users:                            # same credentials for both relay and proxy inbounds
+  - name: alice
+    uuid: "..."
+    password: "..."
+    short_id: "..."
+    token: "..."
+```
+
+**Architecture:** Users connect to relay instances, relay proxies traffic to proxy nodes, proxy nodes route through WARP.
+
+**Removing relay:** If `relay_instances` is removed from secrets, clients connect directly to proxy nodes and proxy inbounds accept `users` credentials — no code changes needed.
+
 ## Single-instance vs multi-instance
 
 Services deployed to **one server** (synapse, nextcloud, element, element-call, jitsi, backup) have `host: server1` in their secrets.
