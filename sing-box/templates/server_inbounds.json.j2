@@ -6,7 +6,7 @@
       "listen": "::",
       "listen_port": 8443,
       "users": [
-{% for u in users %}
+{% for u in inbound_users %}
         {
           "name": "{{ u.name }}",
           "password": "{{ u.password }}"
@@ -15,16 +15,16 @@
       ],
       "tls": {
         "enabled": true,
-        "server_name": "{{ reality.server_name }}",
+        "server_name": "{{ current_instance.reality.server_name }}",
         "reality": {
           "enabled": true,
           "handshake": {
-            "server": "{{ reality.server_name }}",
+            "server": "{{ current_instance.reality.server_name }}",
             "server_port": 443
           },
           "private_key": "{{ keys.vless }}",
           "short_id": [
-{% for u in users %}
+{% for u in inbound_users %}
             "{{ u.short_id }}"{{ "," if not loop.last else "" }}
 {% endfor %}
           ]
@@ -37,7 +37,7 @@
       "listen": "::",
       "listen_port": 2053,
       "users": [
-{% for u in users %}
+{% for u in inbound_users %}
         {
           "name": "{{ u.name }}",
           "uuid": "{{ u.uuid }}"
@@ -55,7 +55,7 @@
       "listen": "::",
       "listen_port": 3053,
       "users": [
-{% for u in users %}
+{% for u in inbound_users %}
         {
           "name": "{{ u.name }}",
           "uuid": "{{ u.uuid }}"
@@ -73,7 +73,7 @@
       "listen": "::",
       "listen_port": 4053,
       "users": [
-{% for u in users %}
+{% for u in inbound_users %}
         {
           "name": "{{ u.name }}",
           "uuid": "{{ u.uuid }}"

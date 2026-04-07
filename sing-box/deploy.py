@@ -12,14 +12,24 @@ def build_context(secrets, instance_name):
     instance = secrets['instances'][instance_name]
     warp_instance = secrets.get('warp', {}).get(instance_name, {})
 
+    # Determine inbound users:
+    # - With relay: relay_instances → proxy inbounds
+    # - Without relay: users → proxy inbounds (direct mode)
+    if secrets.get('relay_instances'):
+        inbound_users = [{'name': name, **data} for name, data in secrets['relay_instances'].items()]
+    else:
+        inbound_users = secrets.get('users', [])
+
     return {
         **secrets,
+        'reality': instance['reality'],
         'current_instance': {
             **instance,
             'warp_private_key': warp_instance.get('private_key', ''),
             'warp_ipv4': warp_instance.get('ipv4', ''),
             'warp_ipv6': warp_instance.get('ipv6', ''),
         },
+        'inbound_users': inbound_users,
         'instance_name': instance_name,
     }
 
@@ -47,7 +57,7 @@ deployer = ServiceDeployer({
         ('server_container.j2',     '/etc/containers/systemd/sing-box.container'),
         ('server_pod.j2',           '/etc/containers/systemd/sing-box.pod'),
     ],
-    'setup_dirs': [f'{REMOTE_BASE}/sing-box_settings'],
+    'setup_dirs': [f'{REMOTE_BASE}/sing-box_settings', f'{REMOTE_BASE}/sing-box_settings/cache'],
     'restart_cmd': restart_cmd,
 })
 

@@ -59,13 +59,14 @@ class ServiceDeployer:
         self.templates_dir = config['templates_dir']
         self.secrets_file = config['secrets_file']
         self.multi_instance = config.get('multi_instance', False)
+        self.instances_key = config.get('instances_key', 'instances')
 
     def _get_env(self):
         return create_jinja_env(self.templates_dir)
 
     def _get_host_ref(self, secrets, instance_name=None):
         if self.multi_instance:
-            return secrets['instances'][instance_name]['host']
+            return secrets[self.instances_key][instance_name]['host']
         return secrets['host']
 
     def _get_target(self, hosts, secrets, instance_name=None):
@@ -78,7 +79,7 @@ class ServiceDeployer:
         if self.multi_instance:
             return {
                 'common': secrets.get('common', {}),
-                'instance': secrets['instances'][instance_name],
+                'instance': secrets[self.instances_key][instance_name],
                 'instance_name': instance_name,
             }
         return secrets
@@ -177,19 +178,19 @@ class ServiceDeployer:
 
         if self.multi_instance:
             if args.command == 'list':
-                for name, data in secrets['instances'].items():
+                for name, data in secrets[self.instances_key].items():
                     host_ref = data['host']
                     addr = hosts.get(host_ref, {}).get('address', '?')
                     print(f"  {name}\t{addr}")
                 return
 
             if args.all:
-                instances = list(secrets['instances'].keys())
+                instances = list(secrets[self.instances_key].keys())
             elif args.instance:
-                unknown = [i for i in args.instance if i not in secrets['instances']]
+                unknown = [i for i in args.instance if i not in secrets[self.instances_key]]
                 if unknown:
                     print(f"Unknown: {', '.join(unknown)}. "
-                          f"Available: {', '.join(secrets['instances'].keys())}",
+                          f"Available: {', '.join(secrets[self.instances_key].keys())}",
                           file=sys.stderr)
                     sys.exit(1)
                 instances = args.instance

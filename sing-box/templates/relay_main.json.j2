@@ -1,0 +1,81 @@
+{# templates/relay_main.json.j2 #}
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "dns": {
+    "strategy": "ipv4_only"
+  },
+  "outbounds": [
+    {
+      "type": "urltest",
+      "tag": "proxy-balancer",
+      "outbounds": [
+{% for name, inst in instances.items() %}
+        "anytls-{{ loop.index }}"{{ "," if not loop.last else "" }}
+{% endfor %}
+      ]
+    },
+{% for name, inst in instances.items() %}
+    {
+      "type": "anytls",
+      "tag": "anytls-{{ loop.index }}",
+      "server": "{{ inst.address }}",
+      "server_port": 443,
+      "password": "{{ current_instance.password }}",
+      "idle_session_timeout": "120s",
+      "idle_session_check_interval": "60s",
+      "min_idle_session": 2,
+      "tls": {
+        "enabled": true,
+        "server_name": "{{ inst.reality.server_name }}",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "{{ public_key }}",
+          "short_id": "{{ current_instance.short_id }}"
+        }
+      }
+    },
+{% endfor %}
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ],
+  "route": {
+    "rules": [
+      {"action": "sniff"},
+      {"protocol": "bittorrent", "action": "reject"},
+      {"ip_is_private": true, "outbound": "direct"},
+      {
+        "rule_set": [
+          "server",
+          "youtube",
+          "openai",
+          "reddit",
+          "category-gov-ru",
+          "category-porn",
+          "geosite-cn",
+          "geoip-cn",
+          "geoip-ru",
+{% for s in srs.user %}
+          "{{ s.name }}"{{ "," if not loop.last else "" }}
+{% endfor %}
+        ],
+        "outbound": "proxy-balancer"
+      }
+    ]
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "/etc/sing-box/cache/cache.db",
+      "cache_id": "1"
+    }
+  }
+}

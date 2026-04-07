@@ -30,9 +30,10 @@ def rsync_file(local: Path, target: str, remote: str, port: int = 22) -> bool:
     )
     for line in result.stdout.strip().splitlines():
         # itemize format: YXcstpoguax
-        # [0]='<' sent, [2]='c' checksum differs, [3]='s' size differs
+        # [0]='<' sent, [2]='c' checksum differs, [3]='s' size differs, [8]='+' new file
         # A truly unchanged file produces no output or dots-only flags
-        if line and line[0] in '<>' and ('c' in line[1:11] or 's' in line[1:11]):
+        flags = line[1:11] if len(line) > 1 else ''
+        if line and line[0] in '<>' and ('c' in flags or 's' in flags or '+' in flags):
             return True
     return False
 
