@@ -11,7 +11,7 @@
       {"type": "https", "tag": "yandex", "server": "77.88.8.8"}
     ],
     "rules": [
-      {"rule_set": "youtube", "server": "cloudflare"},
+      {"rule_set": "youtube", "domain_suffix": "gvt1.com", "server": "cloudflare"},
       {"domain_suffix": "proton.me", "server": "google"},
       {"rule_set": ["category-gov-ru", "geoip-ru", "geoip-cn"], "server": "yandex"},
       {
@@ -81,7 +81,7 @@
       {"port": 123, "outbound": "direct"},
       {"ip_is_private": true, "outbound": "direct"},
       {"protocol": "bittorrent", "action": "reject"},
-      {"rule_set": "youtube", "outbound": "anytls-balancer"},
+      {"rule_set": "youtube", "domain_suffix": "gvt1.com", "outbound": "anytls-balancer"},
       {"rule_set": ["category-gov-ru", "geoip-ru", "geoip-cn"], "outbound": "direct"},
       {
         "rule_set": [
