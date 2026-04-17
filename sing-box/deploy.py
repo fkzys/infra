@@ -5,16 +5,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.deploy import ServiceDeployer
 
 BASE = Path(__file__).parent
-REMOTE_BASE = '/opt/podman/sing-box'
 
 
 def build_context(secrets, instance_name):
     instance = secrets['instances'][instance_name]
     warp_instance = secrets.get('warp', {}).get(instance_name, {})
 
-    # Determine inbound users:
-    # - With relay: relay_instances → proxy inbounds
-    # - Without relay: users → proxy inbounds (direct mode)
+    basename = secrets['common']['basename']
+    image = instance.get('image') or secrets['common']['image']
+
     if secrets.get('relay_instances'):
         inbound_users = [{'name': name, **data} for name, data in secrets['relay_instances'].items()]
     else:
@@ -22,9 +21,11 @@ def build_context(secrets, instance_name):
 
     return {
         **secrets,
+        'basename': basename,
         'reality': instance['reality'],
         'current_instance': {
             **instance,
+            'image': image,
             'warp_private_key': warp_instance.get('private_key', ''),
             'warp_ipv4': warp_instance.get('ipv4', ''),
             'warp_ipv6': warp_instance.get('ipv6', ''),
@@ -34,13 +35,37 @@ def build_context(secrets, instance_name):
     }
 
 
+def make_files(secrets, instance_name):
+    instance = secrets['instances'][instance_name]
+    basename = secrets['common']['basename']
+    volume_path = instance.get('volume_path') or secrets['common']['volume_path']
+    settings_dir = f'{volume_path}/settings'
+    return [
+        ('server_main.json.j2',     f'{settings_dir}/main.json'),
+        ('server_inbounds.json.j2', f'{settings_dir}/inbounds.json'),
+        ('server_ruleset.json.j2',  f'{settings_dir}/ruleset.json'),
+        ('server_warp.json.j2',     f'{settings_dir}/warp.json'),
+        ('server_container.j2',     f'/etc/containers/systemd/{basename}.container'),
+        ('server_pod.j2',           f'/etc/containers/systemd/{basename}.pod'),
+    ]
+
+
+def make_setup_dirs(secrets, instance_name):
+    volume_path = secrets['instances'][instance_name].get('volume_path') or secrets['common']['volume_path']
+    settings_dir = f'{volume_path}/settings'
+    return [f'{settings_dir}', f'{volume_path}/cache']
+
+
 def restart_cmd(secrets, instance_name):
-    image = secrets['instances'][instance_name]['image']
+    instance = secrets['instances'][instance_name]
+    image = instance.get('image') or secrets['common']['image']
+    basename = secrets['common']['basename']
+    volume_path = instance.get('volume_path') or secrets['common']['volume_path']
     return (
         f'podman pull {image}'
         f' && systemctl daemon-reload'
-        f' && systemctl reset-failed sing-box-pod sing-box 2>/dev/null;'
-        f' systemctl restart sing-box-pod'
+        f' && systemctl reset-failed {basename}-pod {basename} 2>/dev/null;'
+        f' systemctl restart {basename}-pod'
     )
 
 
@@ -49,15 +74,8 @@ deployer = ServiceDeployer({
     'secrets_file': BASE / 'secrets' / 'secrets.enc.yaml',
     'multi_instance': True,
     'context_builder': build_context,
-    'files': [
-        ('server_main.json.j2',     f'{REMOTE_BASE}/sing-box_settings/main.json'),
-        ('server_inbounds.json.j2', f'{REMOTE_BASE}/sing-box_settings/inbounds.json'),
-        ('server_ruleset.json.j2',  f'{REMOTE_BASE}/sing-box_settings/ruleset.json'),
-        ('server_warp.json.j2',     f'{REMOTE_BASE}/sing-box_settings/warp.json'),
-        ('server_container.j2',     '/etc/containers/systemd/sing-box.container'),
-        ('server_pod.j2',           '/etc/containers/systemd/sing-box.pod'),
-    ],
-    'setup_dirs': [f'{REMOTE_BASE}/sing-box_settings', f'{REMOTE_BASE}/sing-box_settings/cache'],
+    'files': make_files,
+    'setup_dirs': make_setup_dirs,
     'restart_cmd': restart_cmd,
 })
 
