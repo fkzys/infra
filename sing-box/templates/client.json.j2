@@ -7,8 +7,8 @@
   "dns": {
     "strategy": "ipv4_only",
     "servers": [
-      {"type": "https", "tag": "cloudflare", "server": "1.1.1.1"},
-      {"type": "https", "tag": "google", "server": "8.8.8.8"},
+      {"type": "https", "tag": "cloudflare", "server": "1.1.1.1", "detour": "naive-balancer"},
+      {"type": "https", "tag": "google", "server": "8.8.8.8", "detour": "naive-balancer"},
       {"type": "https", "tag": "yandex", "server": "77.88.8.8"}
     ],
     "rules": [
@@ -93,7 +93,7 @@
         "tag": "{{ s.name }}",
         "format": "binary",
         "url": "{{ s.link }}",
-        "download_detour": "direct",
+        "download_detour": "naive-balancer",
         "update_interval": "1h0m0s"
       },
 {% endfor %}
@@ -112,7 +112,7 @@
         "type": "remote",
         "tag": "{{ tag }}",
         "url": "{{ url }}",
-        "download_detour": "direct"
+        "download_detour": "naive-balancer"
       }{{ "," if not loop.last else "" }}
 {% endfor %}
     ],

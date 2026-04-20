@@ -9,8 +9,8 @@
   "dns": {
     "strategy": "prefer_ipv6",
     "servers": [
-      { "tag": "cloudflare", "type": "https", "server": "1.1.1.1" },
-      { "tag": "google", "type": "https", "server": "8.8.8.8" },
+      { "tag": "cloudflare", "type": "https", "server": "1.1.1.1", "detour": "naive-balancer" },
+      { "tag": "google", "type": "https", "server": "8.8.8.8", "detour": "naive-balancer" },
       { "tag": "yandex", "type": "https",  "server": "77.88.8.8" },
       { "tag": "local", "type": "local" }
     ],
@@ -66,12 +66,14 @@
         "tag": "router",
         "format": "binary",
         "update_interval": "10m",
+        "download_detour": "naive-balancer",
         "url": "{{ srs.router.link }}"
       },
 {% set static_rules = [
     ('openai', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-openai.srs'),
     ('category-ru', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ru.srs'),
     ('category-ir', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ir.srs'),
+    ('geosite-cn', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs'),
     ('telegram', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-telegram.srs'),
     ('youtube', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs'),
     ('category-ads-all', 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs'),
@@ -83,6 +85,7 @@
         "tag": "{{ tag }}",
         "format": "binary",
         "update_interval": "1h",
+        "download_detour": "naive-balancer",
         "url": "{{ url }}"
       }{{ "," if not loop.last else "" }}
 {% endfor %}
