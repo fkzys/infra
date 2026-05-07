@@ -14,7 +14,7 @@ AllowUsers {{ common.ssh_allowed_users | join(' ') }}
 
 Protocol 2
 X11Forwarding no
-AllowTcpForwarding no
+AllowTcpForwarding yes
 AllowStreamLocalForwarding no
 GatewayPorts no
 PermitTunnel no
