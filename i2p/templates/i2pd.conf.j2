@@ -4,5 +4,5 @@ loglevel = error
 port = {{ current_instance.port if current_instance.port else common.port }}
 ipv4 = true
 ipv6 = false
-bandwidth = 10mb
+bandwidth = {{ current_instance.bandwidth if current_instance.bandwidth else common.bandwidth }}
 floodfill = true
