@@ -25,8 +25,9 @@ deployer = ServiceDeployer({
     'context_builder': build_context,
     'files': [
         ('i2pd.conf.j2', '/etc/i2pd/i2pd.conf'),
+        ('override.conf.j2', '/etc/systemd/system/i2pd.service.d/override.conf'),
     ],
-    'setup_dirs': ['/etc/i2pd'],
+    'setup_dirs': ['/etc/i2pd', '/etc/systemd/system/i2pd.service.d'],
 })
 
 if __name__ == '__main__':
