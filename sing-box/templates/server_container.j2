@@ -14,12 +14,12 @@ Volume=/etc/ssl/certs/{{ common.domain }}.crt:/etc/ssl/certs/{{ common.domain }}
 Volume=/etc/ssl/private/{{ common.domain }}.key:/etc/ssl/private/{{ common.domain }}.key:ro
 
 Label=traefik.enable=true
-Label=traefik.tcp.routers.{{ basename }}_naive.entryPoints=https
-Label=traefik.tcp.routers.{{ basename }}_naive.rule=HostSNI(`{{ current_instance.reality.server_name }}`)
-Label=traefik.tcp.routers.{{ basename }}_naive.service={{ basename }}_naive
-Label=traefik.tcp.routers.{{ basename }}_naive.tls=true
-Label=traefik.tcp.services.{{ basename }}_naive.loadbalancer.server.port=8443
-Label=traefik.tcp.routers.{{ basename }}_naive.tls.passthrough=true
+Label=traefik.tcp.routers.{{ basename }}_prx.entryPoints=https
+Label=traefik.tcp.routers.{{ basename }}_prx.rule=HostSNI(`{{ current_instance.reality.server_name }}`)
+Label=traefik.tcp.routers.{{ basename }}_prx.service={{ basename }}_prx
+Label=traefik.tcp.routers.{{ basename }}_prx.tls=true
+Label=traefik.tcp.services.{{ basename }}_prx.loadbalancer.server.port=8443
+Label=traefik.tcp.routers.{{ basename }}_prx.tls.passthrough=true
 
 [Service]
 Restart=always

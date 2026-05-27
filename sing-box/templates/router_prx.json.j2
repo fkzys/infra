@@ -1,17 +1,17 @@
-{# templates/router_naive.json.j2 #}
+{# templates/router_prx.json.j2 #}
 {
   "outbounds": [
 {% set target = relay_instances if relay_instances else instances %}
 {% for name, inst in target.items() %}
     {
-      "type": "naive",
-      "tag": "naive-{{ loop.index }}",
+      "type": "anytls",
+      "tag": "prx-{{ loop.index }}",
       "server": "{{ inst.address }}",
       "server_port": 443,
-      "username": "{{ current_user.name }}",
       "password": "{{ current_user.password }}",
-      "udp_over_tcp": true,
-      "quic_congestion_control": "bbr2",
+      "idle_session_timeout": "120s",
+      "idle_session_check_interval": "60s",
+      "min_idle_session": 2,
       "tls": {
         "enabled": true,
         "server_name": "{{ inst.reality.server_name if inst.reality else reality.server_name }}",

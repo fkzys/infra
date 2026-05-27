@@ -1,19 +1,18 @@
 {
   "inbounds": [
     {
-      "type": "naive",
-      "tag": "naive_in",
+      "type": "anytls",
+      "tag": "anytls_in",
       "listen": "::",
       "listen_port": 8443,
       "users": [
 {% for u in inbound_users %}
         {
-          "username": "{{ u.name }}",
+          "name": "{{ u.name }}",
           "password": "{{ u.password }}"
         }{{ "," if not loop.last else "" }}
 {% endfor %}
       ],
-      "quic_congestion_control": "bbr2",
       "tls": {
         "enabled": true,
         "certificate_path": "/etc/ssl/certs/{{ common.domain }}.crt",

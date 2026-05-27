@@ -298,15 +298,15 @@ def generate_router_configs(secrets, env, users, uploader=None):
             router_urls['main'] = url
             print(f"  ↳ URL: {url}")
 
-        # Naive outbounds
-        naive_filename = 'sing-box_naive.json'
-        naive_config = render_json(env, 'router_naive.json.j2', context)
-        (router_dir / naive_filename).write_text(naive_config)
-        print(f"✓ Created: {router_dir / naive_filename}")
+        # Proxy outbounds
+        prx_filename = 'sing-box_prx.json'
+        prx_config = render_json(env, 'router_prx.json.j2', context)
+        (router_dir / prx_filename).write_text(prx_config)
+        print(f"✓ Created: {router_dir / prx_filename}")
 
         if uploader and token:
-            url = uploader.upload(f"{token}/{naive_filename}", naive_config)
-            router_urls['naive'] = url
+            url = uploader.upload(f"{token}/{prx_filename}", prx_config)
+            router_urls['prx'] = url
             print(f"  ↳ URL: {url}")
 
         if router_urls:
