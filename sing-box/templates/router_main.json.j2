@@ -9,8 +9,8 @@
   "dns": {
     "strategy": "prefer_ipv6",
     "servers": [
-      { "tag": "cloudflare", "type": "https", "server": "1.1.1.1", "detour": "naive-balancer" },
-      { "tag": "google", "type": "https", "server": "8.8.8.8", "detour": "naive-balancer" },
+      { "tag": "cloudflare", "type": "https", "server": "1.1.1.1", "detour": "balancer" },
+      { "tag": "google", "type": "https", "server": "8.8.8.8", "detour": "balancer" },
       { "tag": "yandex", "type": "https",  "server": "77.88.8.8" },
       { "tag": "local", "type": "local" }
     ],
@@ -43,7 +43,7 @@
       "routing_mark": {{ router.routing_mark }}
     },
 {% set balancers = [
-    ('naive-balancer', 'naive')
+    ('balancer', 'prx')
 ] %}
 {% for balancer_tag, outbound_prefix in balancers %}
     {
@@ -66,7 +66,7 @@
         "tag": "router",
         "format": "binary",
         "update_interval": "10m",
-        "download_detour": "naive-balancer",
+        "download_detour": "balancer",
         "url": "{{ srs.router.link }}"
       },
 {% set static_rules = [
@@ -85,7 +85,7 @@
         "tag": "{{ tag }}",
         "format": "binary",
         "update_interval": "1h",
-        "download_detour": "naive-balancer",
+        "download_detour": "balancer",
         "url": "{{ url }}"
       }{{ "," if not loop.last else "" }}
 {% endfor %}
@@ -95,7 +95,7 @@
       {"protocol": "dns", "action": "hijack-dns"},
       {"port": [123], "outbound": "direct"},
       {"rule_set": "category-ads-all", "action": "reject"},
-      {"rule_set": ["router", "openai", "youtube", "telegram", "reddit"], "outbound": "naive-balancer"}
+      {"rule_set": ["router", "openai", "youtube", "telegram", "reddit"], "outbound": "balancer"}
     ]
   },
   "experimental": {

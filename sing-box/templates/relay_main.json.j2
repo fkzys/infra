@@ -13,20 +13,20 @@
       "tag": "proxy-balancer",
       "outbounds": [
 {% for name, inst in instances.items() %}
-        "naive-{{ loop.index }}"{{ "," if not loop.last else "" }}
+        "prx-{{ loop.index }}"{{ "," if not loop.last else "" }}
 {% endfor %}
       ]
     },
 {% for name, inst in instances.items() %}
     {
-      "type": "naive",
-      "tag": "naive-{{ loop.index }}",
+      "type": "anytls",
+      "tag": "prx-{{ loop.index }}",
       "server": "{{ inst.address }}",
       "server_port": 443,
-      "username": "{{ current_instance.name }}",
       "password": "{{ current_instance.password }}",
-      "udp_over_tcp": true,
-      "quic_congestion_control": "bbr2",
+      "idle_session_timeout": "120s",
+      "idle_session_check_interval": "60s",
+      "min_idle_session": 2,
       "tls": {
         "enabled": true,
         "server_name": "{{ inst.reality.server_name }}"
