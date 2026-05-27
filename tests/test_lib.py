@@ -182,6 +182,17 @@ class TestRemote:
         assert rsync_file(Path("/tmp/f"), "user@host", "/etc/f", 22) is True
 
     @patch("subprocess.run")
+    def test_rsync_failure_exits(self, mock_run):
+        # rsync failed (e.g. parent directory missing on remote)
+        mock_run.return_value = MagicMock(
+            stdout="", returncode=23,
+            stderr="rsync: mkdir \"/etc/systemd/system/i2pd.service.d\" failed: No such file or directory",
+        )
+        from lib.remote import rsync_file
+        with pytest.raises(SystemExit):
+            rsync_file(Path("/tmp/f"), "user@host", "/etc/systemd/system/i2pd.service.d/override.conf", 22)
+
+    @patch("subprocess.run")
     def test_write_secret_remote(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         from lib.remote import write_secret_remote

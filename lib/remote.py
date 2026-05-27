@@ -28,6 +28,9 @@ def rsync_file(local: Path, target: str, remote: str, port: int = 22) -> bool:
          str(local), f'{target}:{remote}'],
         capture_output=True, text=True
     )
+    if result.returncode != 0:
+        print(f"  rsync error: {result.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
     for line in result.stdout.strip().splitlines():
         # itemize format: YXcstpoguax
         # [0]='<' sent, [2]='c' checksum differs, [3]='s' size differs, [8]='+' new file
