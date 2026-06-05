@@ -1,0 +1,30 @@
+[Unit]
+Description=mirotalk-sfu container
+
+[Container]
+Image=docker.io/mirotalk/sfu:latest
+ContainerName=mirotalk_sfu_1
+EnvironmentFile=/opt/podman/mirotalk/mirotalk.env
+PublishPort=40000-40100:40000-40100/udp
+PublishPort=40000-40100:40000-40100/tcp
+
+Label=service="mirotalk-sfu"
+Label=traefik.enable=true
+Label=traefik.http.routers.http-mirotalk-sfu.entryPoints=http
+Label=traefik.http.routers.http-mirotalk-sfu.rule=Host(`{{ mirotalk.domain }}`)
+Label=traefik.http.routers.http-mirotalk-sfu.middlewares=https_redirect@file
+Label=traefik.http.routers.https-mirotalk-sfu.entryPoints=https
+Label=traefik.http.routers.https-mirotalk-sfu.rule=Host(`{{ mirotalk.domain }}`)
+Label=traefik.http.routers.https-mirotalk-sfu.middlewares=secure-header@file
+Label=traefik.http.routers.https-mirotalk-sfu.service=mirotalk-sfu
+Label=traefik.http.routers.https-mirotalk-sfu.tls=true
+Label=traefik.http.routers.https-mirotalk-sfu.tls.domains[0].main={{ mirotalk.domain }}
+Label=traefik.http.services.mirotalk-sfu.loadbalancer.server.port=3010
+
+Network=mirotalk.network
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
