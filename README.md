@@ -21,8 +21,7 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
 | `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx + cron timer |
 | `metrics` | Prometheus + Node Exporter + Grafana |
 | `i2p` | I2P anonymous overlay network (i2pd daemon, native, no container) |
-| `jitsi` | Jitsi Meet video conferencing (prosody + jicofo + jvb + web) |
-| `coturn` | TURN/STUN relay server for Jitsi (native, no container) |
+| `mirotalk` | MiroTalk SFU — WebRTC video conferencing (Podman container) |
 | `wireguard` | WireGuard mesh + client tunnels (native, no container) |
 | `sing-box` | Proxy server + client/router config generator with Cloudflare KV distribution |
 | `router` | OpenWrt router configs: nftables tproxy, network, wireless, firewall, dhcp — distributed via KV |
@@ -83,11 +82,7 @@ infra/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
-├── jitsi/
-│   ├── deploy.py
-│   ├── templates/
-│   └── secrets/
-├── coturn/
+├── mirotalk/
 │   ├── deploy.py
 │   ├── templates/
 │   └── secrets/
@@ -207,7 +202,7 @@ python deploy.py renew                 # issue if <30 days + distribute
 
 Traefik reads certificates from `/etc/ssl/` via file provider with `watch: true` — updating the cert files and touching the dynamic config is enough, no container restart required.
 
-The same wildcard certificate is used by coturn, and other native services — they read directly from `/etc/ssl/` on the host.
+The same wildcard certificate is used by other native services — they read directly from `/etc/ssl/` on the host.
 
 Auto-renewal via cron:
 
@@ -281,9 +276,9 @@ users:                            # same credentials for both relay and proxy in
 
 ## Single-instance vs multi-instance
 
-Services deployed to **one server** (synapse, nextcloud, element, element-call, jitsi, backup) have `host: server1` in their secrets.
+Services deployed to **one server** (synapse, nextcloud, element, element-call, mirotalk, backup) have `host: server1` in their secrets.
 
-Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, sing-box, system, firewall, i2p) have `instances:` with a `host:` reference per instance and support `--all`.
+Services deployed to **multiple servers** (traefik, metrics, wireguard, sing-box, system, firewall, i2p) have `instances:` with a `host:` reference per instance and support `--all`.
 
 **Router** uses a different model — multiple routers defined under `routers:` in secrets, configs delivered via KV instead of SSH.
 
@@ -291,7 +286,7 @@ Services deployed to **multiple servers** (traefik, metrics, coturn, wireguard, 
 
 Most services run as **Podman containers** managed via Quadlet units.
 
-**i2p**, **coturn**, **wireguard**, **system**, and **firewall** run as **native systemd services** — they need host networking, direct access to `/etc/ssl/`, kernel-level interfaces (WireGuard), or tight integration with system sockets (coturn UDP relay). Only config files are deployed, no Quadlet units.
+**i2p**, **wireguard**, **system**, and **firewall** run as **native systemd services** — they need host networking, kernel-level interfaces (WireGuard), or direct system integration. Only config files are deployed, no Quadlet units.
 
 **Router** configs are native OpenWrt UCI/nftables files — no containers involved.
 
@@ -321,8 +316,7 @@ sops nextcloud/secrets/secrets.enc.yaml
 sops element/secrets/secrets.enc.yaml
 sops element-call/secrets/secrets.enc.yaml
 sops metrics/secrets/secrets.enc.yaml
-sops jitsi/secrets/secrets.enc.yaml
-sops coturn/secrets/secrets.enc.yaml
+sops mirotalk/secrets/secrets.enc.yaml
 sops wireguard/secrets/secrets.enc.yaml
 sops sing-box/secrets/secrets.enc.yaml
 sops system/secrets/secrets.enc.yaml
@@ -466,22 +460,17 @@ backup:
       secret_key: "..."
 ```
 
-### coturn secrets
+### mirotalk secrets
 
 ```yaml
-common:
-  cert_domain: example.com
+host: server1
 
-instances:
-  jitsi-turn:
-    host: server2
-    realm: meet.example.com
-    external_ip: "203.0.113.20"
-    listening_ip: "203.0.113.20"
-    static_auth_secret: "..."
-    keep_address_family: true
-    no_loopback_peers: true
-    dh2066: true
+mirotalk:
+  domain: meet.example.com
+  announced_ip: "203.0.113.20"
+  host_users: "..."
+  api_key_secret: "..."
+  jwt_secret: "..."
 ```
 
 ### element-call secrets
@@ -565,7 +554,7 @@ shared:
     config_dir: "/etc/sing-box"
     files:
       - main.json
-      - sing-box_naive.json
+      - sing-box_prx.json
 
 routers:
   router-1:
@@ -588,7 +577,7 @@ routers:
 
 ## Usage
 
-### Single-instance (synapse, nextcloud, element, element-call, jitsi, backup)
+### Single-instance (synapse, nextcloud, element, element-call, mirotalk, backup)
 
 ```bash
 cd synapse/
@@ -598,7 +587,7 @@ python deploy.py deploy
 python deploy.py deploy --no-restart
 ```
 
-### Multi-instance (traefik, metrics, coturn, wireguard, sing-box, system, firewall, i2p)
+### Multi-instance (traefik, metrics, wireguard, sing-box, system, firewall, i2p)
 
 ```bash
 cd firewall/
@@ -679,13 +668,12 @@ Service configs go to `/opt/podman/<service>/` and are mounted into containers v
 
 Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
 
-Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services (coturn).
+Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services.
 
 Native service configs:
 - system → `/etc/ssh/sshd_config`, `/etc/sysctl.d/`, `/etc/systemd/network/`, `/etc/systemd/journald.conf`, systemd timers
 - firewall → `/etc/firewalld/zones/`
 - backup → `/root/scripts/backup.sh`, systemd service + timer
-- coturn → `/etc/turnserver/turnserver.conf`
 - wireguard → `/etc/wireguard/wg0.conf`
 - i2p → `/etc/i2pd/i2pd.conf`
 
@@ -730,9 +718,6 @@ Router configs (via KV):
 ├── certs/example.com.crt
 └── private/example.com.key
 
-/etc/turnserver/
-└── turnserver.conf
-
 /etc/wireguard/
 └── wg0.conf
 
@@ -766,14 +751,8 @@ Router configs (via KV):
 │   └── config/livekit.yaml
 ├── metrics/
 │   └── prometheus/prometheus.yml
-├── jitsi/
-│   ├── jitsi.env
-│   └── jitsi-meet-cfg/
-│       ├── prosody/
-│       ├── jicofo/
-│       ├── jvb/
-│       ├── web/
-│       └── transcripts/
+├── mirotalk/
+│   └── mirotalk.env
 └── sing-box/
     └── sing-box_settings/
         ├── main.json
@@ -802,7 +781,7 @@ Router configs (via KV):
 
 /etc/sing-box/
 ├── main.json
-└── sing-box_naive.json
+└── sing-box_prx.json
 
 /root/
 ├── sing-box
@@ -859,8 +838,6 @@ Controlled by `behind_cf` flag in service secrets.
 ## Pod vs shared network
 
 Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx, element-call (livekit + lk-jwt).
-
-Jitsi uses a **Quadlet Network** instead — containers need DNS-based discovery (`NetworkAlias=xmpp.meet.jitsi` for prosody), which doesn't work inside a pod since pods share a single network namespace and bypass container DNS.
 
 ## License
 
