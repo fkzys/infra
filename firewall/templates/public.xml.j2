@@ -11,19 +11,9 @@
   <service name="https"/>
   <service name="http3"/>
 {% endif %}
-{% if instance.turn | default(false) %}
-  <service name="stun"/>
-  <service name="stuns"/>
-  <service name="turn"/>
-  <service name="turns"/>
-  <port protocol="udp" port="49152-57952"/>
-  {% endif %}
 {% if instance.mirotalk | default(false) %}
   <port protocol="udp" port="40000-40100"/>
   <port protocol="tcp" port="40000-40100"/>
-{% endif %}
-{% if instance.jitsi | default(false) %}
-  <port protocol="udp" port="{{ instance.jitsi_port | default(common.jitsi_port) }}"/>
 {% endif %}
 {% if instance.wg_endpoint | default(false) %}
   <port protocol="udp" port="{{ common.wg_port }}"/>
