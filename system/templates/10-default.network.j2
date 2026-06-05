@@ -1,5 +1,6 @@
 # Managed by infra repo — {{ instance_name }}
 {% set stack = instance.network_stack | default(common.network_stack) %}
+{% set dhcp = instance.network_dhcp | default(common.network_dhcp) %}
 [Match]
 Name=e*
 
@@ -7,12 +8,25 @@ Name=e*
 MTUBytes=1500
 
 [Network]
+{% if dhcp == false %}
+Address={{ instance.networkd_ip }}
+{% else %}
 DHCP=ipv4
+{% endif %}
 {% if stack == 'dual' %}
 LinkLocalAddressing=ipv6
 IPv6AcceptRA=false
 {% else %}
 LinkLocalAddressing=no
+{% endif %}
+
+{% if dhcp == false %}
+[Route]
+Destination={{ instance.networkd_destination }}
+Scope=link
+
+[Route]
+Gateway={{ instance.networkd_gateway }}
 {% endif %}
 
 [DHCP]

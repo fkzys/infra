@@ -93,26 +93,26 @@ def issue(secrets: dict, force: bool = False) -> bool:
 
     proxy = start_doh_proxy()
     try:
-        cmd = [
-            "lego",
+
+        if exists:
+            action = ["renew", "--days", "9999" if force else str(RENEW_DAYS)]
+        else:
+            action = ["run"]
+
+        cmd = ["lego"] + action + [
             "--email", secrets["acme_email"],
             "--server", "https://dv.acme-v02.api.pki.goog/directory",
             "--eab",
-            "--kid", secrets["acme_eab_kid"],
-            "--hmac", secrets["acme_eab_hmac"],
+            "--eab.kid", secrets["acme_eab_kid"],
+            "--eab.hmac", secrets["acme_eab_hmac"],
             "--dns", "cloudflare",
-            "--dns.propagation-disable-ans",
+            "--dns.propagation.disable-ans",
             "--dns.resolvers", f"127.0.0.1:{DOH_PROXY_PORT}",
             "--domains", f"*.{domain}",
             "--domains", domain,
             "--path", str(CERT_STORE / "lego"),
             "--accept-tos",
         ]
-
-        if exists:
-            cmd.extend(["renew", "--days", "9999" if force else str(RENEW_DAYS)])
-        else:
-            cmd.append("run")
 
         env = {
             **os.environ,

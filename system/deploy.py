@@ -27,7 +27,6 @@ deployer = ServiceDeployer({
         'sshd -t && '
         'systemctl daemon-reload && '
         'sysctl --system && '
-        'systemctl restart sshd && '
         'systemctl try-reload-or-restart systemd-journald && '
         'systemctl enable --now 10-paccache_user.timer 10-btrfs_scrub.timer 10-sysctl_user.timer'
     ),
