@@ -71,6 +71,9 @@
 {% for rule in current_user.custom_rules | default([]) %}
       {{ rule | to_json }},
 {% endfor %}
+{% for rule in common.client_rules | default([]) %}
+      {{ rule | to_json }},
+{% endfor %}
       {"port": 123, "outbound": "direct"},
       {"ip_is_private": true, "outbound": "direct"},
       {"process_name": ["qbittorrent", "i2pd"], "outbound": "direct"},
