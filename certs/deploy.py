@@ -95,7 +95,10 @@ def issue(secrets: dict, force: bool = False) -> bool:
     try:
 
         if exists:
-            action = ["renew", "--days", "9999" if force else str(RENEW_DAYS)]
+            if force:
+                action = ["run", "--renew-force"]
+            else:
+                action = ["run", "--renew-days", str(RENEW_DAYS)]
         else:
             action = ["run"]
 
