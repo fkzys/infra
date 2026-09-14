@@ -95,8 +95,47 @@ class TestBuildContext:
         mod = _load_deploy_relay()
         secrets = _secrets(with_wlb=True)
         del secrets["wlb"]
-        with pytest.raises(ValueError, match="wlb enabled"):
+        with pytest.raises(ValueError, match="wlb: true"):
             mod.build_context(secrets, "relay-eu")
+
+    def test_dict_overrides_shared(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["relay_instances"]["relay-eu"]["wlb"] = {"RESOURCES": "custom"}
+        ctx = mod.build_context(secrets, "relay-eu")
+        assert ctx["wlb"]["RESOURCES"] == "custom"
+        assert ctx["wlb"]["VK_TOKEN"] == "vk1.a.TOKEN"
+
+    def test_dict_only_without_shared_block(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        del secrets["wlb"]
+        secrets["relay_instances"]["relay-eu"]["wlb"] = {"VK_TOKEN": "own", "vk_group_id": "555"}
+        ctx = mod.build_context(secrets, "relay-eu")
+        assert ctx["wlb"]["VK_TOKEN"] == "own"
+        assert ctx["wlb"]["VK_GROUP_ID"] == "555"
+
+    def test_dict_empty_uses_shared(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["relay_instances"]["relay-eu"]["wlb"] = {}
+        ctx = mod.build_context(secrets, "relay-eu")
+        assert ctx["wlb"]["VK_TOKEN"] == "vk1.a.TOKEN"
+
+    def test_wlb_invalid_type_raises(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["relay_instances"]["relay-eu"]["wlb"] = "enabled"
+        with pytest.raises(ValueError, match="expected true/false or a dict"):
+            mod.build_context(secrets, "relay-eu")
+
+    def test_dict_form_custom_image_used_in_restart(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["relay_instances"]["relay-eu"]["wlb"] = {"image": "ghcr.io/me/bot:2.0"}
+        assert "podman pull ghcr.io/me/bot:2.0" in mod.restart_cmd(secrets, "relay-eu")
+        ctx = mod.build_context(secrets, "relay-eu")
+        assert ctx["wlb"]["image"] == "ghcr.io/me/bot:2.0"
 
     def test_volume_path_used_as_is(self):
         mod = _load_deploy_relay()
