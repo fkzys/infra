@@ -259,6 +259,19 @@ relay_instances:                  # relay nodes (deployed via deploy-relay.py)
     image: ghcr.io/sagernet/sing-box:latest-testing    # per-instance override
     password: "..."               # relay→proxy authentication
     short_id: "..."
+    wlb: true                     # whitelist-bypass bot on this relay (see below)
+
+wlb:                              # shared whitelist-bypass config (top level)
+  image: ghcr.io/kulikov0/whitelist-bypass-bot:latest
+  vk_token: "..."
+  vk_group_id: "..."
+  vk_user_ids: "12345,67890"      # optional — space-separated VK IDs allowed to use the bot
+  resources: default              # optional, defaults to "default"
+  cookies_yandex: |
+    [
+      {"name": "Session_id", "value": "..."},
+      {"name": "ys", "value": "..."}
+    ]
 
 users:                            # same credentials for both relay and proxy inbounds
   - name: alice
@@ -269,6 +282,21 @@ users:                            # same credentials for both relay and proxy in
 ```
 
 **Architecture:** Users connect to relay instances, relay proxies traffic to proxy nodes, proxy nodes route through WARP.
+
+**whitelist-bypass bot:** Adding `wlb: true` to a relay instance deploys the bot container in the relay's pod. It polls VK for allowed-user requests and creates Yandex Telemost conferences (via an HTTP API — no UDP/WebRTC needed, so the local SOCKS inbound has no `udp`). The bot reaches VK/Telemost through the relay's sing-box SOCKS (`127.0.0.1:1080` in the pod). It needs **fresh Yandex cookies** (`Session_id` is mandatory) exported from the desktop creator app (`Export Cookies` → `cookies.zip` → `cookies-yandex.json`) — paste the JSON into `wlb.cookies_yandex` verbatim; do not re-format it with shell tools like `xargs` (they strip the JSON quotes and the creator fails with "Cannot parse cookies"). Cookie file is written `999:999, 600` and mounted read-only; the bot session volume is mounted with `:U`.
+
+`wlb` per instance can also be a **dict** — a merge on top of the shared `wlb:` block (instance keys win), e.g. to give one relay its own cookies or bot image:
+
+```yaml
+relay_instances:
+  relay-eu:
+    wlb:
+      cookies_yandex: '[...]'    # own session for this relay, everything else shared
+```
+
+`wlb: true` without a top-level `wlb:` block is an error; a dict form works standalone. `wlb: false` (or absent) leaves the relay untouched.
+
+**Config validation (at render time, before anything is deployed):** the resolved wlb config must contain `vk_token`, `vk_group_id` and a `cookies_yandex` that is a **non-empty JSON array of `{"name", "value"}` objects** — missing fields, unparseable JSON, a bare object or empty array all fail the deploy with a clear error instead of writing a broken file. Missing `image` falls back to `ghcr.io/kulikov0/whitelist-bypass-bot:latest`.
 
 **Direct outbound rules:** Client configs bypass the proxy for BitTorrent traffic (rejected) and route `qbittorrent`/`i2pd` processes and the `i2pd` user directly — these services need uncapped bandwidth or unfiltered connectivity.
 
