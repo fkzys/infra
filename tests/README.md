@@ -60,6 +60,8 @@ Same approach — no network, no SSH, no real secrets. The relay deployer module
 - `wlb: {dict}` → per-instance overrides merged over the shared block (instance keys win), works standalone without a shared block, `{}` falls back to shared
 - invalid type (e.g. a string) → `ValueError`
 - env keys normalized to canonical case (`vk_token` → `VK_TOKEN`, etc.), `image`/`cookies_yandex` pass through
+- **config validation:** resolved config must have `VK_TOKEN`, `VK_GROUP_ID` and a non-empty `cookies_yandex` JSON array of `{"name","value"}` — missing field, unparseable JSON, non-array and entry-without-value all raise at render time
+- missing `image` falls back to `DEFAULT_WLB_IMAGE` (single constant shared with the template default)
 
 **Wiring:** `make_files`/`make_setup_dirs`/`restart_cmd` gated on `wlb` — cookie file perms `999:999/600`, cookies `:ro` mount, sessions `:U`, restart pulls bot image and restarts both units, `After=singbox.container` ordering.
 

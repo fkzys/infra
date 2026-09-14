@@ -110,10 +110,15 @@ class TestBuildContext:
         mod = _load_deploy_relay()
         secrets = _secrets(with_wlb=True)
         del secrets["wlb"]
-        secrets["relay_instances"]["relay-eu"]["wlb"] = {"VK_TOKEN": "own", "vk_group_id": "555"}
+        secrets["relay_instances"]["relay-eu"]["wlb"] = {
+            "VK_TOKEN": "own",
+            "vk_group_id": "555",
+            "cookies_yandex": '[{"name": "sessionid", "value": "abc"}]',
+        }
         ctx = mod.build_context(secrets, "relay-eu")
         assert ctx["wlb"]["VK_TOKEN"] == "own"
         assert ctx["wlb"]["VK_GROUP_ID"] == "555"
+        assert ctx["wlb"]["cookies_yandex"] == '[{"name": "sessionid", "value": "abc"}]'
 
     def test_dict_empty_uses_shared(self):
         mod = _load_deploy_relay()
@@ -127,6 +132,49 @@ class TestBuildContext:
         secrets = _secrets(with_wlb=True)
         secrets["relay_instances"]["relay-eu"]["wlb"] = "enabled"
         with pytest.raises(ValueError, match="expected true/false or a dict"):
+            mod.build_context(secrets, "relay-eu")
+
+    def test_missing_vk_token_raises(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        del secrets["wlb"]["vk_token"]
+        with pytest.raises(ValueError, match="missing 'VK_TOKEN'"):
+            mod.build_context(secrets, "relay-eu")
+
+    def test_missing_cookies_yandex_raises(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        del secrets["wlb"]["cookies_yandex"]
+        with pytest.raises(ValueError, match="missing 'cookies_yandex'"):
+            mod.build_context(secrets, "relay-eu")
+
+    def test_dict_form_missing_vk_fields_raises(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        del secrets["wlb"]
+        secrets["relay_instances"]["relay-eu"]["wlb"] = {"cookies_yandex": '[{"name": "sessionid", "value": "abc"}]'}
+        with pytest.raises(ValueError, match="missing 'VK_TOKEN'"):
+            mod.build_context(secrets, "relay-eu")
+
+    def test_invalid_cookies_json_raises(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["wlb"]["cookies_yandex"] = "{name: sessionid}"
+        with pytest.raises(ValueError, match="invalid cookies_yandex JSON"):
+            mod.build_context(secrets, "relay-eu")
+
+    def test_non_array_cookies_raises(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["wlb"]["cookies_yandex"] = '{"name": "sessionid"}'
+        with pytest.raises(ValueError, match="non-empty JSON array"):
+            mod.build_context(secrets, "relay-eu")
+
+    def test_cookie_without_value_field_raises(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["wlb"]["cookies_yandex"] = '[{"name": "sessionid"}]'
+        with pytest.raises(ValueError, match="'name' and 'value'"):
             mod.build_context(secrets, "relay-eu")
 
     def test_dict_form_custom_image_used_in_restart(self):

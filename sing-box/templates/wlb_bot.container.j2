@@ -5,7 +5,7 @@ After={{ basename }}.pod
 After={{ basename }}.container
 
 [Container]
-Image={{ wlb.image | default('ghcr.io/kulikov0/whitelist-bypass-bot:latest') }}
+Image={{ wlb.image }}
 ContainerName={{ basename }}-wlb
 Pod={{ basename }}.pod
 Environment=VK_TOKEN={{ wlb.VK_TOKEN }}
