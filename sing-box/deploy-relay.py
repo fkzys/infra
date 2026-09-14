@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+import json
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.deploy import ServiceDeployer
 
 BASE = Path(__file__).parent
+
+DEFAULT_WLB_IMAGE = 'ghcr.io/kulikov0/whitelist-bypass-bot:latest'
 
 # Keys in the wlb secrets block mapping 1:1 to bot env vars — normalized to canonical
 # VK_TOKEN/VK_GROUP_ID/etc. so the template never depends on case in secrets.
@@ -22,7 +25,7 @@ def _resolve_wlb(secrets, instance_name):
                 f"relay instance '{instance_name}' has wlb: true enabled, but no wlb: config block "
                 f"at the top level of the secrets file"
             )
-        return shared
+        return dict(shared)
     if isinstance(wlb, dict):
         return {**(shared or {}), **wlb}
     raise ValueError(
@@ -36,6 +39,38 @@ def _normalize_wlb(wlb):
     return {k.upper() if k.lower() in _WLB_ENV_KEYS else k: v for k, v in wlb.items()}
 
 
+def _validate_wlb(wlb, instance_name):
+    for key in ('VK_TOKEN', 'VK_GROUP_ID'):
+        if not wlb.get(key):
+            raise ValueError(
+                f"relay instance '{instance_name}' has wlb enabled, but the resolved config "
+                f"is missing '{key}'"
+            )
+    raw_cookies = wlb.get('cookies_yandex')
+    if not raw_cookies:
+        raise ValueError(
+            f"relay instance '{instance_name}' has wlb enabled, but the resolved config "
+            f"is missing 'cookies_yandex'"
+        )
+    try:
+        cookies = json.loads(raw_cookies)
+    except (TypeError, ValueError) as e:
+        raise ValueError(
+            f"relay instance '{instance_name}' has invalid cookies_yandex JSON: {e}"
+        ) from e
+    if not isinstance(cookies, list) or not cookies:
+        raise ValueError(
+            f"relay instance '{instance_name}' has invalid cookies_yandex — expected a "
+            f"non-empty JSON array, got {type(cookies).__name__}"
+        )
+    for c in cookies:
+        if not isinstance(c, dict) or not c.get('name') or c.get('value') is None:
+            raise ValueError(
+                f"relay instance '{instance_name}' has invalid cookies_yandex — every entry "
+                f"must be an object with 'name' and 'value'"
+            )
+
+
 def build_context(secrets, instance_name):
     relay = secrets['relay_instances'][instance_name]
 
@@ -45,12 +80,18 @@ def build_context(secrets, instance_name):
 
     inbound_users = secrets.get('users', [])
 
+    wlb = _resolve_wlb(secrets, instance_name)
+    if wlb is not None:
+        wlb.setdefault('image', DEFAULT_WLB_IMAGE)
+        wlb = _normalize_wlb(wlb)
+        _validate_wlb(wlb, instance_name)
+
     return {
         **secrets,
         'basename': basename,
         'volume_path': volume_path,
         'reality': relay['reality'],
-        'wlb': _normalize_wlb(_resolve_wlb(secrets, instance_name)),
+        'wlb': wlb,
         'current_instance': {
             **relay,
             'image': image,
@@ -102,7 +143,7 @@ def restart_cmd(secrets, instance_name):
     restart_units = basename
     wlb = _resolve_wlb(secrets, instance_name)
     if wlb:
-        pulls.append(f"podman pull {wlb.get('image') or 'ghcr.io/kulikov0/whitelist-bypass-bot:latest'}")
+        pulls.append(f"podman pull {wlb.get('image') or DEFAULT_WLB_IMAGE}")
         units += f' {basename}-wlb'
         restart_units = f'{basename} {basename}-wlb'
     return (

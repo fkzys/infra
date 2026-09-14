@@ -296,6 +296,8 @@ relay_instances:
 
 `wlb: true` without a top-level `wlb:` block is an error; a dict form works standalone. `wlb: false` (or absent) leaves the relay untouched.
 
+**Config validation (at render time, before anything is deployed):** the resolved wlb config must contain `vk_token`, `vk_group_id` and a `cookies_yandex` that is a **non-empty JSON array of `{"name", "value"}` objects** — missing fields, unparseable JSON, a bare object or empty array all fail the deploy with a clear error instead of writing a broken file. Missing `image` falls back to `ghcr.io/kulikov0/whitelist-bypass-bot:latest`.
+
 **Direct outbound rules:** Client configs bypass the proxy for BitTorrent traffic (rejected) and route `qbittorrent`/`i2pd` processes and the `i2pd` user directly — these services need uncapped bandwidth or unfiltered connectivity.
 
 **Removing relay:** If `relay_instances` is removed from secrets, clients connect directly to proxy nodes and proxy inbounds accept `users` credentials — no code changes needed.
