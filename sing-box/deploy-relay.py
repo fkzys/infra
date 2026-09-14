@@ -12,15 +12,22 @@ _WLB_ENV_KEYS = {'vk_token', 'vk_group_id', 'vk_user_ids', 'resources'}
 
 
 def _resolve_wlb(secrets, instance_name):
-    if secrets['relay_instances'][instance_name].get('wlb'):
-        shared = secrets.get('wlb')
+    wlb = secrets['relay_instances'][instance_name].get('wlb')
+    if wlb is None or wlb is False:
+        return None
+    shared = secrets.get('wlb')
+    if wlb is True:
         if not isinstance(shared, dict):
             raise ValueError(
-                f"relay instance '{instance_name}' has wlb enabled, but no wlb: config block "
+                f"relay instance '{instance_name}' has wlb: true enabled, but no wlb: config block "
                 f"at the top level of the secrets file"
             )
         return shared
-    return None
+    if isinstance(wlb, dict):
+        return {**(shared or {}), **wlb}
+    raise ValueError(
+        f"relay instance '{instance_name}' has wlb: {wlb!r} — expected true/false or a dict of overrides"
+    )
 
 
 def _normalize_wlb(wlb):
