@@ -19,5 +19,14 @@
         "key_path": "/etc/ssl/private/{{ common.domain }}.key"
       }
     }
+{% if current_instance.wlb %}
+    ,
+    {
+      "type": "socks",
+      "tag": "wlb_socks_in",
+      "listen": "127.0.0.1",
+      "listen_port": 1080
+    }
+{% endif %}
   ]
 }

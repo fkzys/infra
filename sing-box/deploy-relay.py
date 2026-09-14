@@ -6,19 +6,44 @@ from lib.deploy import ServiceDeployer
 
 BASE = Path(__file__).parent
 
+# Keys in the wlb secrets block mapping 1:1 to bot env vars — normalized to canonical
+# VK_TOKEN/VK_GROUP_ID/etc. so the template never depends on case in secrets.
+_WLB_ENV_KEYS = {'vk_token', 'vk_group_id', 'vk_user_ids', 'resources'}
+
+
+def _resolve_wlb(secrets, instance_name):
+    if secrets['relay_instances'][instance_name].get('wlb'):
+        shared = secrets.get('wlb')
+        if not isinstance(shared, dict):
+            raise ValueError(
+                f"relay instance '{instance_name}' has wlb enabled, but no wlb: config block "
+                f"at the top level of the secrets file"
+            )
+        return shared
+    return None
+
+
+def _normalize_wlb(wlb):
+    if not isinstance(wlb, dict):
+        return None
+    return {k.upper() if k.lower() in _WLB_ENV_KEYS else k: v for k, v in wlb.items()}
+
 
 def build_context(secrets, instance_name):
     relay = secrets['relay_instances'][instance_name]
 
     basename = secrets['common']['basename']
     image = relay.get('image') or secrets['common']['image']
+    volume_path = relay.get('volume_path') or secrets['common']['volume_path']
 
     inbound_users = secrets.get('users', [])
 
     return {
         **secrets,
         'basename': basename,
+        'volume_path': volume_path,
         'reality': relay['reality'],
+        'wlb': _normalize_wlb(_resolve_wlb(secrets, instance_name)),
         'current_instance': {
             **relay,
             'image': image,
@@ -34,32 +59,50 @@ def make_files(secrets, instance_name):
     basename = secrets['common']['basename']
     volume_path = relay.get('volume_path') or secrets['common']['volume_path']
     settings_dir = f'{volume_path}/settings'
-    return [
+    files = [
         ('relay_main.json.j2',     f'{settings_dir}/main.json'),
         ('server_inbounds.json.j2', f'{settings_dir}/inbounds.json'),
         ('server_ruleset.json.j2',  f'{settings_dir}/ruleset.json'),
         ('server_container.j2',     f'/etc/containers/systemd/{basename}.container'),
         ('server_pod.j2',           f'/etc/containers/systemd/{basename}.pod'),
     ]
+    if _resolve_wlb(secrets, instance_name):
+        files += [
+            ('wlb_bot.container.j2', f'/etc/containers/systemd/{basename}-wlb.container'),
+            ('wlb_cookies_yandex.json.j2', f'{volume_path}/cookies/cookies-yandex.json',
+             {'owner': '999:999', 'mode': '600'}),
+        ]
+    return files
 
 
 def make_setup_dirs(secrets, instance_name):
     relay = secrets['relay_instances'][instance_name]
     volume_path = relay.get('volume_path') or secrets['common']['volume_path']
     settings_dir = f'{volume_path}/settings'
-    return [f'{settings_dir}', f'{volume_path}/cache']
+    dirs = [f'{settings_dir}', f'{volume_path}/cache']
+    if _resolve_wlb(secrets, instance_name):
+        dirs += [f'{volume_path}/cookies', f'{volume_path}/wlb-sessions']
+    return dirs
 
 
 def restart_cmd(secrets, instance_name):
     relay = secrets['relay_instances'][instance_name]
     image = relay.get('image') or secrets['common']['image']
     basename = secrets['common']['basename']
-    volume_path = relay.get('volume_path') or secrets['common']['volume_path']
+
+    pulls = [f'podman pull {image}']
+    units = f'{basename} {basename}-pod'
+    restart_units = basename
+    wlb = _resolve_wlb(secrets, instance_name)
+    if wlb:
+        pulls.append(f"podman pull {wlb.get('image') or 'ghcr.io/kulikov0/whitelist-bypass-bot:latest'}")
+        units += f' {basename}-wlb'
+        restart_units = f'{basename} {basename}-wlb'
     return (
-        f'podman pull {image}'
-        f' && systemctl daemon-reload'
-        f' && systemctl reset-failed {basename} {basename}-pod 2>/dev/null;'
-        f' systemctl restart {basename}'
+        ' && '.join(pulls)
+        + f' && systemctl daemon-reload'
+        + f' && systemctl reset-failed {units} 2>/dev/null;'
+        + f' systemctl restart {restart_units}'
     )
 
 
