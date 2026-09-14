@@ -190,6 +190,28 @@ class TestBuildContext:
         ctx = mod.build_context(_secrets(), "relay-eu")
         assert ctx["volume_path"] == "/opt/podman/singbox"
 
+    def test_direct_flag_normalized_lowercase(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["wlb"]["direct"] = True
+        ctx = mod.build_context(secrets, "relay-eu")
+        assert ctx["wlb"]["direct"] is True
+
+    def test_direct_from_instance_dict_override(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["relay_instances"]["relay-eu"]["wlb"] = {"direct": True}
+        ctx = mod.build_context(secrets, "relay-eu")
+        assert ctx["wlb"]["direct"] is True
+        assert ctx["wlb"]["VK_TOKEN"] == "vk1.a.TOKEN"  # shared block still merged
+
+    def test_direct_non_boolean_raises(self):
+        mod = _load_deploy_relay()
+        secrets = _secrets(with_wlb=True)
+        secrets["wlb"]["direct"] = "yes"
+        with pytest.raises(ValueError, match="invalid wlb.direct"):
+            mod.build_context(secrets, "relay-eu")
+
 
 # ═══════════════════════════════════════════════════
 # make_files / make_setup_dirs
@@ -292,6 +314,20 @@ class TestInboundsRender:
         assert socks[0]["listen_port"] == 1080
         assert "udp" not in socks[0]
 
+    def test_direct_true_omits_socks_inbound(self):
+        secrets = _secrets(with_wlb=True)
+        secrets["wlb"]["direct"] = True
+        rendered = _render(secrets, "relay-eu", "server_inbounds.json.j2")
+        data = json.loads(rendered)
+        assert [i["tag"] for i in data["inbounds"]] == ["anytls_in"]
+
+    def test_direct_false_keeps_socks_inbound(self):
+        secrets = _secrets(with_wlb=True)
+        secrets["wlb"]["direct"] = False
+        rendered = _render(secrets, "relay-eu", "server_inbounds.json.j2")
+        data = json.loads(rendered)
+        assert any(i.get("tag") == "wlb_socks_in" for i in data["inbounds"])
+
 
 class TestWlbUnitRender:
     def test_flag_true_sets_env_from_top_level_config(self):
@@ -329,6 +365,22 @@ class TestWlbUnitRender:
         del secrets["wlb"]["resources"]
         rendered = _render(secrets, "relay-eu", "wlb_bot.container.j2")
         assert "Environment=RESOURCES=default" in rendered
+
+    def test_direct_true_omits_upstream_socks(self):
+        secrets = _secrets(with_wlb=True)
+        secrets["wlb"]["direct"] = True
+        rendered = _render(secrets, "relay-eu", "wlb_bot.container.j2")
+        assert "UPSTREAM_SOCKS" not in rendered
+
+    def test_direct_false_keeps_upstream_socks(self):
+        secrets = _secrets(with_wlb=True)
+        secrets["wlb"]["direct"] = False
+        rendered = _render(secrets, "relay-eu", "wlb_bot.container.j2")
+        assert "Environment=UPSTREAM_SOCKS=127.0.0.1:1080" in rendered
+
+    def test_direct_absent_keeps_upstream_socks(self):
+        rendered = _render(_secrets(with_wlb=True), "relay-eu", "wlb_bot.container.j2")
+        assert "Environment=UPSTREAM_SOCKS=127.0.0.1:1080" in rendered
 
 
 class TestCookiesRender:
