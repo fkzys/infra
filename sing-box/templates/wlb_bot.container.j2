@@ -12,7 +12,9 @@ Environment=VK_TOKEN={{ wlb.VK_TOKEN }}
 Environment=VK_GROUP_ID={{ wlb.VK_GROUP_ID }}
 Environment=TM_COOKIES=/data/cookies-yandex.json
 Environment=RESOURCES={{ wlb.RESOURCES | default('default') }}
+{% if not wlb.direct %}
 Environment=UPSTREAM_SOCKS=127.0.0.1:1080
+{% endif %}
 {% if wlb.VK_USER_IDS %}
 Environment=VK_USER_IDS={{ wlb.VK_USER_IDS }}
 {% endif %}
