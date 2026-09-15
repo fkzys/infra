@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.deploy import ServiceDeployer
-from lib.wlb import DEFAULT_WLB_IMAGE, prepare_wlb, resolve_wlb
+from lib.wlb import prepare_wlb, resolve_wlb
 
 BASE = Path(__file__).parent
 
@@ -80,9 +80,9 @@ def restart_cmd(secrets, instance_name):
     pulls = [f'podman pull {image}']
     units = f'{basename}-pod {basename}'
     restart_units = f'{basename}-pod'
-    wlb = resolve_wlb(secrets, instance_name, INSTANCES_KEY)
+    wlb = prepare_wlb(secrets, instance_name, INSTANCES_KEY)
     if wlb:
-        pulls.append(f"podman pull {wlb.get('image') or DEFAULT_WLB_IMAGE}")
+        pulls.append(f"podman pull {wlb['image']}")
         units += f' {basename}-wlb'
         restart_units += f' {basename}-wlb'
     return (
