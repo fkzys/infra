@@ -19,7 +19,7 @@
         "key_path": "/etc/ssl/private/{{ common.domain }}.key"
       }
     }
-{% if current_instance.wlb %}
+{% if wlb and not wlb.direct %}
     ,
     {
       "type": "socks",
