@@ -11,7 +11,6 @@ deployer = ServiceDeployer({
     'secrets_file': BASE / 'secrets' / 'secrets.enc.yaml',
     'files': [
         ('mirotalk.env.j2',       '/opt/podman/mirotalk/mirotalk.env'),
-        ('mirotalk.network.j2',    '/etc/containers/systemd/mirotalk.network'),
         ('mirotalk.container.j2',  '/etc/containers/systemd/mirotalk.container'),
     ],
     'setup_dirs': [

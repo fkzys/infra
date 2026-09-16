@@ -21,8 +21,6 @@ Label=traefik.http.routers.https-mirotalk-sfu.tls=true
 Label=traefik.http.routers.https-mirotalk-sfu.tls.domains[0].main={{ mirotalk.domain }}
 Label=traefik.http.services.mirotalk-sfu.loadbalancer.server.port=3010
 
-Network=mirotalk.network
-
 [Service]
 Restart=always
 
