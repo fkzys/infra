@@ -26,6 +26,13 @@
       }
     ]
   },
+  "http_clients": [
+    {
+      "tag": "http-1",
+      "version": 2,
+      "detour": "balancer"
+    }
+  ],
   "inbounds": [
     {"type": "tun", "tag": "tun-in",
       "address": "172.18.0.1/30",
@@ -97,7 +104,6 @@
         "tag": "{{ s.name }}",
         "format": "binary",
         "url": "{{ s.link }}",
-        "download_detour": "balancer",
         "update_interval": "1h0m0s"
       },
 {% endfor %}
@@ -115,13 +121,13 @@
       {
         "type": "remote",
         "tag": "{{ tag }}",
-        "download_detour": "balancer",
         "url": "{{ url }}"
       }{{ "," if not loop.last else "" }}
 {% endfor %}
     ],
     "auto_detect_interface": true,
-    "default_domain_resolver": "cloudflare"
+    "default_domain_resolver": "cloudflare",
+    "default_http_client": "http-1"
   },
   "experimental": {
     "cache_file": { "enabled": true, "path": "sing-box_cache.db" }

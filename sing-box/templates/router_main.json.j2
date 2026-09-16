@@ -22,6 +22,13 @@
       { "rule_set": ["category-ru", "category-ir", "geosite-cn"], "server": "yandex" }
     ]
   },
+  "http_clients": [
+    {
+      "tag": "http-1",
+      "version": 2,
+      "detour": "balancer"
+    }
+  ],
   "inbounds": [
     {
       "type": "tproxy",
@@ -60,13 +67,13 @@
   ],
   "route": {
     "default_domain_resolver": "cloudflare",
+    "default_http_client": "http-1",
     "rule_set": [
       {
         "type": "remote",
         "tag": "router",
         "format": "binary",
         "update_interval": "10m",
-        "download_detour": "balancer",
         "url": "{{ srs.router.link }}"
       },
 {% set static_rules = [
@@ -85,7 +92,6 @@
         "tag": "{{ tag }}",
         "format": "binary",
         "update_interval": "1h",
-        "download_detour": "balancer",
         "url": "{{ url }}"
       }{{ "," if not loop.last else "" }}
 {% endfor %}
