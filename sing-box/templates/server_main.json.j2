@@ -12,6 +12,12 @@
       "tag": "direct"
     }
   ],
+  "http_clients": [
+    {
+      "tag": "http-1",
+      "version": 2
+    }
+  ],
   "route": {
     "rules": [
       {"action": "sniff"},
@@ -37,7 +43,8 @@
         ],
         "outbound": "warp"
       }
-    ]
+    ],
+    "default_http_client": "http-1"
   },
   "experimental": {
     "cache_file": {
