@@ -77,59 +77,6 @@ sops decrypt → jinja render → KV upload → device wget/curl
 
 This avoids SSH to constrained devices (OpenWrt routers, phones) while keeping configs versioned and secrets encrypted at rest.
 
-## What gets deployed where
-
-Quadlet units go to `/etc/containers/systemd/` on remote.
-
-Service configs go to `/opt/podman/<service>/` and are mounted into containers via Quadlet `Volume=`.
-
-Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
-
-Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services.
-
-Native service configs:
-- system → `/etc/ssh/sshd_config`, `/etc/sysctl.d/`, `/etc/systemd/network/`, `/etc/systemd/journald.conf`, systemd timers
-- firewall → `/etc/firewalld/zones/`
-- backup → `/root/scripts/backup.sh`, systemd service + timer
-- wireguard → `/etc/wireguard/wg0.conf`
-- i2p → `/etc/i2pd/i2pd.conf`
-
-Router configs (via KV):
-- nftables → `/etc/nftables/nft-ipv6`
-- network, wireless, firewall, dhcp, system → `/etc/config/`
-- sing-box init → `/etc/init.d/sing-box_my`
-- ip rules → `/etc/rc.local`
-
-## Single-instance vs multi-instance
-
-Services deployed to **one server** (synapse, nextcloud, element, element-call, mirotalk, backup) have `host: server1` in their secrets.
-
-Services deployed to **multiple servers** (traefik, metrics, wireguard, sing-box, system, firewall, i2p) have `instances:` with a `host:` reference per instance and support `--all`.
-
-**Router** uses a different model — multiple routers defined under `routers:` in secrets, configs delivered via KV instead of SSH.
-
-## Containerized vs native
-
-Most services run as **Podman containers** managed via Quadlet units.
-
-**i2p**, **wireguard**, **system**, and **firewall** run as **native systemd services** — they need host networking, kernel-level interfaces (WireGuard), or direct system integration. Only config files are deployed, no Quadlet units.
-
-**Router** configs are native OpenWrt UCI/nftables files — no containers involved.
-
-## Traefik middleware notes
-
-Two IP allowlist middlewares in `dynamic1.yml`:
-
-**`blacklist`** — for services behind Cloudflare. Uses `ipStrategy.excludedIPs` to strip CF proxy IPs and check real client IP.
-
-**`blacklist-direct`** — for services accessed directly (no CF). Same allowlist, no `ipStrategy`.
-
-Controlled by `behind_cf` flag in service secrets.
-
-## Pod vs shared network
-
-Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx, element-call (livekit + lk-jwt).
-
 ## Secrets
 
 All secrets are SOPS-encrypted.
