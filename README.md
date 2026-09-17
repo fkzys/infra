@@ -88,7 +88,7 @@ sops secrets/hosts.enc.yaml
 
 And service secrets are stored at:
 ```bash
-.../secrets/secrets/secrets.enc.yaml
+.../secrets/secrets.enc.yaml
 ```
 
 ## Prerequisites
