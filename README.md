@@ -872,4 +872,4 @@ Some services use a Quadlet **Pod** (shared network namespace, containers talk v
 
 ## License
 
-AGPL-3.0-or-later
+Fork-Parity-1.0.0
