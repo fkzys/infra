@@ -17,7 +17,7 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
     - [CLI](docs/usage.md#cli)
 
 - **[structure](docs/structure.md)**
-    - [Secrets strucrure](docs/structure.md#secrets-structure)
+    - [Secrets structure](docs/structure.md#secrets-structure)
     - [What gets deployed where](docs/structure.md#what-gets-deployed-where)
     - [Remote server layout](docs/structure.md#remote-server-layout)
     - [Router layout](docs/structure.md#router-layout)
