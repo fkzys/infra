@@ -1,6 +1,6 @@
 # infra
 
-## Secrets strucrure
+## Secrets structure
 
 ### hosts.enc.yaml
 
