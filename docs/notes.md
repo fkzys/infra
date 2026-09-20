@@ -30,7 +30,7 @@ Controlled by `behind_cf` flag in service secrets.
 
 Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx, element-call (livekit + lk-jwt).
 
-## sing-box
+## Sing-box
 
 **Architecture:** Users connect to relay instances, relay proxies traffic to proxy nodes, proxy nodes route through WARP.
 

@@ -106,7 +106,7 @@ deployer = ServiceDeployer({
 
 The CLI (`list`, `render`, `diff`, `deploy --all`) uses this key to enumerate available instances. This allows a single secrets file to manage different logical groups (e.g., proxy nodes and relay nodes) with separate deploy scripts.
 
-## Cli
+## CLI
 
 ### Single-instance (synapse, nextcloud, element, element-call, mirotalk, backup)
 
