@@ -6,6 +6,29 @@
 
 Infrastructure-as-code for a personal server stack and home network. Podman Quadlet configs, OpenWrt router configs, service configs and secrets — all templated, versioned and deployed over SSH or distributed via Cloudflare Workers KV.
 
+## Docs
+
+- **[usage](docs/usage.md)**
+    - [Adding a new service](docs/usage.md#adding-a-new-service)
+    - [File permissions](docs/usage.md#file-permissions)
+    - [Restart command](docs/usage.md#restart-command)
+    - [Dynamic file paths](docs/usage.md#dynamic-file-paths)
+    - [Multi-instance services with `instances_key`](docs/usage.md#multi-instance-services-with-instances_key)
+    - [CLI](docs/usage.md#cli)
+
+- **[structure](docs/structure.md)**
+    - [Secrets strucrure](docs/structure.md#secrets-structure)
+    - [What gets deployed where](docs/structure.md#what-gets-deployed-where)
+    - [Remote server layout](docs/structure.md#remote-server-layout)
+    - [Router layout](docs/structure.md#router-layout)
+
+- **[notes](docs/notes.md)**
+    - [Single-instance vs multi-instance](docs/notes.md#single-instance-vs-multi-instance)
+    - [Containerized vs native](docs/notes.md#containerized-vs-native)
+    - [Traefik middleware notes](docs/notes.md#traefik-middleware-notes)
+    - [Pod vs shared network](docs/notes.md#pod-vs-shared-network)
+    - [Sing-box](docs/notes.md#sing-box)
+
 ## Stack
 
 | Service | What |
