@@ -1,27 +1,14 @@
-"""Shared whitelist-bypass (wlb) bot contract for sing-box instance deployers.
-
-`wlb` is a per-instance option available on ANY instance group — proxy nodes
-(`instances`, deploy.py) and relay nodes (`relay_instances`, deploy-relay.py)
-alike. Per instance:
-
-- false/absent → bot disabled, instance untouched,
-- true → use the top-level `wlb:` block from the secrets file (error if missing),
-- {dict} → merge on top of the shared block (instance keys win), works standalone.
-
+"""
+Shared whitelist-bypass (wlb) bot contract for sing-box instance deployers.
 The resolved block is normalized (env-var keys uppercased) and validated before
-anything is rendered. An extra `direct` flag (boolean, default false) toggles
-`UPSTREAM_SOCKS` on the bot: `true` makes the creator open the joiner's
-connections straight from its own IP without going through the instance's
-local sing-box SOCKS; `false`/absent keeps `UPSTREAM_SOCKS=127.0.0.1:1080` so
-user traffic lands in the instance's sing-box filters/route rules.
+anything is rendered.
 """
 
 import json
 
 DEFAULT_WLB_IMAGE = 'ghcr.io/kulikov0/whitelist-bypass-bot:latest'
 
-# Keys in the wlb secrets block mapping 1:1 to bot env vars — normalized to canonical
-# VK_TOKEN/VK_GROUP_ID/etc. so the template never depends on case in secrets.
+# Keys in the wlb secrets block mapping 1:1 to bot env vars — normalized to canonical VK_TOKEN/VK_GROUP_ID/etc.
 _WLB_ENV_KEYS = {'vk_token', 'vk_group_id', 'vk_user_ids', 'resources'}
 
 
