@@ -223,4 +223,4 @@ Auto-renewal via cron:
 
 ## License
 
-Fork-Parity-1.0.0
+Fork-Parity-1.0.1
