@@ -62,4 +62,4 @@ Removing relay: If `relay_instances` is removed from secrets, clients connect di
 
 ## License
 
-Fork-Parity-1.0.0
+Fork-Parity-1.0.1

@@ -126,4 +126,4 @@ And service secrets are stored at:
 
 ## License
 
-Fork-Parity-1.0.0
+Fork-Parity-1.0.1

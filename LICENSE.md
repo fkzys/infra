@@ -1,4 +1,4 @@
-# Fork of The Parity Public License 7.0.0, 1.0.0
+# Fork of The Parity Public License 7.0.0. Fork Version 1.0.1
 
 Contributor: fkzys
 
