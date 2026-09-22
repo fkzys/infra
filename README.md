@@ -1,7 +1,7 @@
 # infra
 
 [![CI](https://github.com/fkzys/infra/actions/workflows/ci.yml/badge.svg)](https://github.com/fkzys/infra/actions/workflows/ci.yml)
-![License](https://img.shields.io/github/license/fkzys/infra)
+![License](https://img.shields.io/badge/license-Fork_Parity_1.0.1-orange)
 [![Spec](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/fkzys/specs/refs/heads/main/version.json&maxAge=300)](https://github.com/fkzys/specs)
 
 Infrastructure-as-code for a personal server stack and home network. Podman Quadlet configs, OpenWrt router configs, service configs and secrets — all templated, versioned and deployed over SSH or distributed via Cloudflare Workers KV.
