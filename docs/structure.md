@@ -315,6 +315,10 @@ wlb:                              # shared whitelist-bypass config (top level)
       {"name": "Session_id", "value": "..."},
       {"name": "ys", "value": "..."}
     ]
+  cookies_vk: |
+    [
+      {"name": "...", "value": "..."}
+    ]
 
 users:                            # same credentials for both relay and proxy inbounds
   - name: alice

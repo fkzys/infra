@@ -38,7 +38,7 @@ Some services use a Quadlet **Pod** (shared network namespace, containers talk v
 Adding `wlb: true` deploys the bot container in that instance's pod.
 It polls VK for allowed-user requests and creates Yandex Telemost conferences via an HTTP API.
 The bot's own HTTP calls to VK API/Telemost go out directly from its own IP; with upstream SOCKS enabled (default) the joiner's tunneled traffic is routed through the instance's sing-box SOCKS (`127.0.0.1:1080` in the pod), where the instance's route rules/filters apply.
-It needs fresh Yandex cookies — paste the JSON into `wlb.cookies_yandex` verbatim; do not re-format it with shell tools like `xargs` (they strip the JSON quotes and the creator fails with "Cannot parse cookies"). Cookie file is written `999:999, 600` and mounted read-only; the bot session volume is mounted with `:U`.
+It needs fresh Yandex and VK cookies — paste each JSON array into `wlb.cookies_yandex` and `wlb.cookies_vk` verbatim; do not re-format them with shell tools like `xargs` (they strip the JSON quotes and the bot fails with "Cannot parse cookies"). Both cookie files are written `999:999, 600` and mounted read-only (`TM_COOKIES` / `VK_COOKIES`); the bot session volume is mounted with `:U`.
 
 `wlb` per instance can also be a **dict** — a merge on top of the shared `wlb:` block (instance keys win), e.g. to give one instance its own cookies or bot image:
 
@@ -46,7 +46,8 @@ It needs fresh Yandex cookies — paste the JSON into `wlb.cookies_yandex` verba
 instances:
   instance1:
     wlb:
-      cookies_yandex: '[...]'    # own session for this instance, everything else shared
+      cookies_yandex: '[...]'    # own Yandex session; everything else is shared
+      cookies_vk: '[...]'        # own VK session
 ```
 
 `wlb.direct: true` (optional) disables `UPSTREAM_SOCKS` on the bot — the creator then opens the joiner's connections straight from its own IP, without going through the local sing-box tunnel.
@@ -54,7 +55,7 @@ Default (`false`/absent) keeps `UPSTREAM_SOCKS=127.0.0.1:1080`.
 
 `wlb: true` without a top-level `wlb:` block is an error; a dict form works standalone. `wlb: false` (or absent) leaves the instance untouched.
 
-Config validation at render time: the resolved wlb config must contain `vk_token`, `vk_group_id` and a `cookies_yandex` that is a non-empty JSON array of `{"name", "value"}` objects. `direct`, when present, must be a boolean. Missing `image` falls back to `ghcr.io/kulikov0/whitelist-bypass-bot:latest`.
+Config validation at render time: the resolved wlb config must contain `vk_token`, `vk_group_id`, and non-empty `cookies_yandex` and `cookies_vk` JSON arrays of `{"name", "value"}` objects. `direct`, when present, must be a boolean. Missing `image` falls back to `ghcr.io/kulikov0/whitelist-bypass-bot:latest`.
 
 Direct outbound rules: Client configs bypass the proxy for BitTorrent traffic (rejected) and route `qbittorrent`/`i2pd` processes and the `i2pd` user directly — these services need uncapped bandwidth or unfiltered connectivity.
 
