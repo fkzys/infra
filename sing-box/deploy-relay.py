@@ -52,6 +52,8 @@ def make_files(secrets, instance_name):
             ('wlb_bot.container.j2', f'/etc/containers/systemd/{basename}-wlb.container'),
             ('wlb_cookies_yandex.json.j2', f'{volume_path}/cookies/cookies-yandex.json',
              {'owner': '999:999', 'mode': '600'}),
+            ('wlb_cookies_vk.json.j2', f'{volume_path}/cookies/cookies-vk.json',
+             {'owner': '999:999', 'mode': '600'}),
         ]
     return files
 

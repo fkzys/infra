@@ -11,6 +11,7 @@ Pod={{ basename }}.pod
 Environment=VK_TOKEN={{ wlb.VK_TOKEN }}
 Environment=VK_GROUP_ID={{ wlb.VK_GROUP_ID }}
 Environment=TM_COOKIES=/data/cookies-yandex.json
+Environment=VK_COOKIES=/data/cookies-vk.json
 Environment=RESOURCES={{ wlb.RESOURCES | default('default') }}
 {% if not wlb.direct %}
 Environment=UPSTREAM_SOCKS=127.0.0.1:1080
@@ -19,6 +20,7 @@ Environment=UPSTREAM_SOCKS=127.0.0.1:1080
 Environment=VK_USER_IDS={{ wlb.VK_USER_IDS }}
 {% endif %}
 Volume={{ volume_path }}/cookies/cookies-yandex.json:/data/cookies-yandex.json:ro
+Volume={{ volume_path }}/cookies/cookies-vk.json:/data/cookies-vk.json:ro
 Volume={{ volume_path }}/wlb-sessions:/data/sessions:U
 AutoUpdate=registry
 
