@@ -4,13 +4,11 @@ on:
   push:
     paths:
       - 'lib/**'
-      - 'sing-box/**'
       - 'tests/*.py'
       - '.github/workflows/ci.yml'
   pull_request:
     paths:
       - 'lib/**'
-      - 'sing-box/**'
       - 'tests/*.py'
       - '.github/workflows/ci.yml'
 
