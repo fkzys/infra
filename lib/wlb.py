@@ -1,5 +1,5 @@
 """
-Shared whitelist-bypass (wlb) bot contract for sing-box instance deployers.
+Shared whitelist-bypass (wlb) bot settings for sing-box instance deployers.
 The resolved block is normalized (env-var keys uppercased) and validated before
 anything is rendered.
 """
@@ -10,6 +10,7 @@ DEFAULT_WLB_IMAGE = 'ghcr.io/kulikov0/whitelist-bypass-bot:latest'
 
 # Keys in the wlb secrets block mapping 1:1 to bot env vars — normalized to canonical VK_TOKEN/VK_GROUP_ID/etc.
 _WLB_ENV_KEYS = {'vk_token', 'vk_group_id', 'vk_user_ids', 'resources'}
+_COOKIE_KEYS = ('cookies_yandex', 'cookies_vk')
 
 
 def resolve_wlb(secrets, instance_name, instances_key):
@@ -47,6 +48,32 @@ def normalize_wlb(wlb):
     return normalized
 
 
+def _validate_cookie_file(wlb, key, instance_name):
+    raw_cookies = wlb.get(key)
+    if not raw_cookies:
+        raise ValueError(
+            f"instance '{instance_name}' has wlb enabled, but the resolved config "
+            f"is missing '{key}'"
+        )
+    try:
+        cookies = json.loads(raw_cookies)
+    except (TypeError, ValueError) as e:
+        raise ValueError(
+            f"instance '{instance_name}' has invalid {key} JSON: {e}"
+        ) from e
+    if not isinstance(cookies, list) or not cookies:
+        raise ValueError(
+            f"instance '{instance_name}' has invalid {key} — expected a "
+            f"non-empty JSON array, got {type(cookies).__name__}"
+        )
+    for c in cookies:
+        if not isinstance(c, dict) or not c.get('name') or c.get('value') is None:
+            raise ValueError(
+                f"instance '{instance_name}' has invalid {key} — every entry "
+                f"must be an object with 'name' and 'value'"
+            )
+
+
 def validate_wlb(wlb, instance_name):
     for key in ('VK_TOKEN', 'VK_GROUP_ID'):
         if not wlb.get(key):
@@ -54,29 +81,8 @@ def validate_wlb(wlb, instance_name):
                 f"instance '{instance_name}' has wlb enabled, but the resolved config "
                 f"is missing '{key}'"
             )
-    raw_cookies = wlb.get('cookies_yandex')
-    if not raw_cookies:
-        raise ValueError(
-            f"instance '{instance_name}' has wlb enabled, but the resolved config "
-            f"is missing 'cookies_yandex'"
-        )
-    try:
-        cookies = json.loads(raw_cookies)
-    except (TypeError, ValueError) as e:
-        raise ValueError(
-            f"instance '{instance_name}' has invalid cookies_yandex JSON: {e}"
-        ) from e
-    if not isinstance(cookies, list) or not cookies:
-        raise ValueError(
-            f"instance '{instance_name}' has invalid cookies_yandex — expected a "
-            f"non-empty JSON array, got {type(cookies).__name__}"
-        )
-    for c in cookies:
-        if not isinstance(c, dict) or not c.get('name') or c.get('value') is None:
-            raise ValueError(
-                f"instance '{instance_name}' has invalid cookies_yandex — every entry "
-                f"must be an object with 'name' and 'value'"
-            )
+    for key in _COOKIE_KEYS:
+        _validate_cookie_file(wlb, key, instance_name)
     direct = wlb.get('direct')
     if direct is not None and not isinstance(direct, bool):
         raise ValueError(
