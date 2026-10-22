@@ -60,6 +60,31 @@ Direct outbound rules: Client configs bypass the proxy for BitTorrent traffic (r
 
 Removing relay: If `relay_instances` is removed from secrets, clients connect directly to proxy nodes and proxy inbounds accept `users` credentials — no code changes needed.
 
+## MatrixRTC / LiveKit AS
+
+Synapse and lk-jwt run as two sides of one Matrix Application Service. Each
+service renders its own registration file from its own secrets:
+
+- `synapse` → `/opt/podman/synapse/data/lk-jwt-registration.yaml`, loaded via
+  `app_service_config_files`.
+- `element-call` → `/opt/podman/element-call/config/lk-jwt-registration.yaml`,
+  read by lk-jwt via `LIVEKIT_AS_REGISTRATION_FILE`.
+
+The `livekit.as_token` / `livekit.hs_token` values must be identical in
+`synapse/secrets/secrets.enc.yaml` and
+`element-call/secrets/secrets.enc.yaml`. They are deliberately duplicated so
+neither deploy has to decrypt the other service's secrets. Rotate both copies
+and redeploy both services together.
+
+`livekit.key` / `livekit.secret` stay only in element-call; Synapse never needs
+the LiveKit API credentials. `synapse.matrix_rtc_domain` and
+`livekit.rtc_domain` must point at the same public host.
+
+The two registration files are local to their service, so deploy order does not
+matter. Each deploy writes its registration file before restarting its pod.
+Synapse's file is chowned to `991:991` because the official image drops root
+privileges to that UID/GID in `start.py`.
+
 ## License
 
 Fork-Parity-1.0.1

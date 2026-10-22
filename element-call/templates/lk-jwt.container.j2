@@ -2,14 +2,17 @@
 Description=LiveKit JWT auth service
 
 [Container]
-Image=ghcr.io/element-hq/lk-jwt-service:latest
+Image=ghcr.io/element-hq/lk-jwt-service:0.9.0
 ContainerName=lk_jwt_1
 Pod=element-call.pod
-Environment=LK_JWT_PORT=8080
+Environment=LIVEKIT_JWT_BIND=:8080
 Environment=LIVEKIT_URL=wss://{{ livekit.rtc_domain }}/livekit/sfu
 Environment=LIVEKIT_KEY={{ livekit.key }}
 Environment=LIVEKIT_SECRET={{ livekit.secret }}
 Environment=LIVEKIT_FULL_ACCESS_HOMESERVERS={{ synapse.server_name }}
+Environment=LIVEKIT_AS_REGISTRATION_FILE=/etc/lk-jwt-registration.yaml
+Environment=LIVEKIT_HS_SERVER_NAME={{ synapse.server_name }}
+Volume=/opt/podman/element-call/config/lk-jwt-registration.yaml:/etc/lk-jwt-registration.yaml:ro,Z
 Volume=/etc/localtime:/etc/localtime:ro
 Label=traefik.enable=true
 Label=traefik.http.routers.lk-jwt.entryPoints=https

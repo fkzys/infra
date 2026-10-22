@@ -12,5 +12,9 @@ turn:
   enabled: false
 keys:
   {{ livekit.key }}: "{{ livekit.secret }}"
+webhook:
+  api_key: "{{ livekit.key }}"
+  urls:
+    - "http://localhost:8080/sfu_webhook"
 room:
   auto_create: false

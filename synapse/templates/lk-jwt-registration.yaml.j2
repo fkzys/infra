@@ -1,0 +1,13 @@
+id: "lk-jwt-service"
+as_token: "{{ livekit.as_token }}"
+hs_token: "{{ livekit.hs_token }}"
+sender_localpart: "_lk_jwt_service"
+namespaces:
+  users:
+    - exclusive: false
+      regex: ".*"
+url: null
+io.element.msc4502.scopes:
+  - "urn:matrix:client:io.element.msc4502:rooms:is_joined"
+io.element.msc4512.proxy_prefix: "rtc/livekit"
+io.element.msc4512.proxy_url: "https://{{ synapse.matrix_rtc_domain }}/livekit/jwt"

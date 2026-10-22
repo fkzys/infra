@@ -44,6 +44,19 @@ synapse:
   postgres_password: "..."
 ```
 
+### synapse lk-jwt AS secrets
+
+`synapse/secrets/secrets.enc.yaml` additionally contains only the AS token pair:
+
+```yaml
+livekit:
+  as_token: "..."
+  hs_token: "..."
+```
+
+The values must match `element-call/secrets/secrets.enc.yaml`. Synapse does not
+need `livekit.rtc_domain`, `livekit.key` or `livekit.secret`.
+
 ### Multi-instance secrets
 
 ```yaml
@@ -161,7 +174,14 @@ livekit:
   rtc_domain: rtc.example.com
   key: "..."
   secret: "..."
+  as_token: "..."   # Application Service token, paired with hs_token
+  hs_token: "..."
 ```
+
+The same `livekit.as_token` / `livekit.hs_token` pair must also exist in
+`synapse/secrets/secrets.enc.yaml`. Synapse renders it into its AS registration
+file; element-call renders it into the lk-jwt registration file. Rotate both
+copies together.
 
 ### wireguard secrets
 
@@ -379,6 +399,7 @@ Router configs (via KV):
 │   └── logs/
 ├── synapse/
 │   ├── data/homeserver.yaml
+│   ├── data/lk-jwt-registration.yaml
 │   ├── data/*.signing.key
 │   ├── data/*.log.config
 │   ├── data/media_store/
@@ -392,7 +413,9 @@ Router configs (via KV):
 │   ├── element_config.json
 │   └── synapse_config.json
 ├── element-call/
-│   └── config/livekit.yaml
+│   └── config/
+│       ├── livekit.yaml
+│       └── lk-jwt-registration.yaml
 ├── metrics/
 │   └── prometheus/prometheus.yml
 ├── mirotalk/

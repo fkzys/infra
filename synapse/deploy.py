@@ -9,6 +9,17 @@ REMOTE_BASE = '/opt/podman/synapse'
 BASE = Path(__file__).parent
 
 
+def build_context(secrets, instance_name=None):
+    livekit = secrets.get('livekit', {})
+    missing = [key for key in ('as_token', 'hs_token') if not livekit.get(key)]
+    if missing:
+        sys.exit(
+            'synapse secrets are missing '
+            + ', '.join(f'livekit.{key}' for key in missing)
+        )
+    return secrets
+
+
 def write_signing_key(secrets, target, port):
     sk = secrets.get('synapse', {}).get('signing_key')
     if sk:
@@ -25,9 +36,12 @@ deployer = ServiceDeployer({
         ('1-postgresql.container.j2', '/etc/containers/systemd/1-postgresql.container'),
         ('2-synapse.container.j2', '/etc/containers/systemd/2-synapse.container'),
         ('homeserver.yaml.j2', f'{REMOTE_BASE}/data/homeserver.yaml'),
+        # The official Synapse image drops from root to 991:991 in start.py.
+        ('lk-jwt-registration.yaml.j2', f'{REMOTE_BASE}/data/lk-jwt-registration.yaml', {'owner': '991:991', 'mode': '600'}),
         ('log.config.j2', lambda s: f"{REMOTE_BASE}/data/{s['synapse']['server_name']}.log.config"),
     ],
     'setup_dirs': [f'{REMOTE_BASE}/data', f'{REMOTE_BASE}/db'],
+    'context_builder': build_context,
     'restart_cmd': 'systemctl daemon-reload && systemctl restart synapse-pod',
     'secrets_hooks': [write_signing_key],
 })

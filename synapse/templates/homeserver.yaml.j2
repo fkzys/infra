@@ -21,9 +21,24 @@ trusted_key_servers:
 public_baseurl: "https://{{ synapse.server_name }}"
 serve_server_wellknown: true
 
+app_service_config_files:
+  - /data/lk-jwt-registration.yaml
+
 extra_well_known_client_content:
   "org.matrix.msc4143.rtc_foci":
     - type: "livekit"
+      livekit_service_url: "https://{{ synapse.matrix_rtc_domain }}/livekit/jwt"
+
+experimental_features:
+  msc4222_enabled: true
+  msc4143_enabled: true
+  msc4502_enabled: true
+  msc4512_enabled: true
+
+matrix_rtc:
+  transports:
+    - type: "livekit"
+      url: "wss://{{ synapse.matrix_rtc_domain }}/livekit/sfu"
       livekit_service_url: "https://{{ synapse.matrix_rtc_domain }}/livekit/jwt"
 
 database:
@@ -43,9 +58,6 @@ max_upload_size: 100M
 enable_registration: false
 
 registration_shared_secret: "{{ synapse.registration_shared_secret }}"
-
-experimental_features:
-  msc4222_enabled: true
 
 max_event_delay_duration: 24h
 
