@@ -308,7 +308,7 @@ wlb:                              # shared whitelist-bypass config (top level)
   image: ghcr.io/kulikov0/whitelist-bypass-bot:latest
   vk_token: "..."
   vk_group_id: "..."
-  vk_user_ids: "12345,67890"      # optional — space-separated VK IDs allowed to use the bot
+  vk_user_ids: "12345,67890"      # optional — comma-separated VK IDs allowed to use the bot
   resources: default              # optional, defaults to "default"
   cookies_yandex: |
     [
