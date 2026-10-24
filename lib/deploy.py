@@ -92,6 +92,18 @@ class ServiceDeployer:
             remote_path = remote_path(secrets)
         return tpl, remote_path, opts
 
+    def _parse_dir_entry(self, entry, secrets, instance_name=None):
+        if isinstance(entry, (list, tuple)):
+            d = entry[0]
+            opts = entry[1] if len(entry) >= 2 else {}
+            if callable(d):
+                d = d(secrets, instance_name)
+            return d, opts
+        if callable(entry):
+            d = entry(secrets, instance_name)
+            return d, {}
+        return entry, {}
+
     def render(self, secrets, env, instance_name=None):
         ctx = self._build_context(secrets, instance_name)
         label = instance_name or self._get_host_ref(secrets)
@@ -136,7 +148,20 @@ class ServiceDeployer:
         setup_dirs = self.setup_dirs(secrets, instance_name) if callable(self.setup_dirs) else self.setup_dirs
 
         if setup_dirs:
-            ssh_run(target, f"mkdir -p {' '.join(setup_dirs)}", port)
+            items = []
+            for entry in setup_dirs:
+                d, dopts = self._parse_dir_entry(entry, secrets, instance_name)
+                if isinstance(d, (list, tuple)):
+                    for dd in d:
+                        ddp, ddopts = self._parse_dir_entry(dd, secrets, instance_name)
+                        items.append((ddp, ddopts))
+                else:
+                    items.append((d, dopts))
+            if items:
+                ssh_run(target, f"mkdir -p {' '.join([p for p, _ in items])}", port)
+                for dp, dopts in items:
+                    if dopts:
+                        _apply_opts(dopts, dp, target, port)
 
         changed = False
         with tempfile.TemporaryDirectory() as tmpdir:
