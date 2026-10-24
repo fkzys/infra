@@ -1,0 +1,50 @@
+[Unit]
+Description=OpenCloud container
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image={{ opencloud.image | default('opencloudeu/opencloud-rolling:latest') }}
+ContainerName=opencloud
+Pod=opencloud.pod
+User=1000:1000
+Entrypoint=/bin/sh
+Exec=-c "opencloud init || true; opencloud server"
+Environment=OC_URL=https://{{ opencloud.domain }}
+Environment=OC_DOMAIN={{ opencloud.domain }}
+Environment=PROXY_TLS=false
+Environment=OC_INSECURE=false
+Environment=OC_LOG_LEVEL=warn
+Environment=OC_LOG_COLOR=false
+Environment=OC_LOG_PRETTY=false
+Environment=PROXY_ENABLE_BASIC_AUTH=false
+Environment=OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD=false
+Environment=OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD=true
+Environment=IDM_CREATE_DEMO_USERS=false
+Environment=IDM_ADMIN_PASSWORD={{ opencloud.initial_admin_password }}
+Environment=INITIAL_ADMIN_PASSWORD={{ opencloud.initial_admin_password }}
+{% if opencloud.trusted_proxies is defined and opencloud.trusted_proxies %}Environment=TRUSTED_PROXIES={{ opencloud.trusted_proxies }}
+{% endif %}
+{% if opencloud.collabora_domain is defined and opencloud.collabora_domain %}Environment=OC_COLLABORA_DOMAIN={{ opencloud.collabora_domain }}
+{% endif %}
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/opt/podman/opencloud/config:/etc/opencloud
+Volume=/opt/podman/opencloud/data:/var/lib/opencloud
+
+Label=traefik.enable=true
+Label=traefik.http.routers.http-opencloud.entryPoints=http
+Label=traefik.http.routers.http-opencloud.rule=Host(`{{ opencloud.domain }}`)
+Label=traefik.http.routers.http-opencloud.middlewares=https_redirect@file
+Label=traefik.http.routers.https-opencloud.entryPoints=https
+Label=traefik.http.routers.https-opencloud.rule=Host(`{{ opencloud.domain }}`)
+Label=traefik.http.routers.https-opencloud.middlewares=secure-header@file
+Label=traefik.http.routers.https-opencloud.service=opencloud
+Label=traefik.http.routers.https-opencloud.tls=true
+Label=traefik.http.routers.https-opencloud.tls.domains[0].main={{ opencloud.domain }}
+Label=traefik.http.services.opencloud.loadbalancer.server.port=9200
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
