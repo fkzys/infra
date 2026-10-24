@@ -1,0 +1,20 @@
+[Unit]
+Description=Radicale container
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image={{ opencloud.radicale_image | default('docker.io/opencloudeu/radicale:latest') }}
+ContainerName=radicale
+Pod=opencloud.pod
+User=1000:1000
+
+Volume=/etc/localtime:/etc/localtime:ro
+Volume=/opt/podman/radicale/config:/etc/radicale:ro
+Volume=/opt/podman/radicale/data:/var/lib/radicale
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
