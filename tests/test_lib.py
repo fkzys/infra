@@ -578,6 +578,24 @@ class TestServiceDeployer:
         assert len(mkdir_calls) == 1
         assert "/opt/svc" in str(mkdir_calls[0])
 
+    @patch("lib.deploy.rsync_file", return_value=False)
+    @patch("lib.deploy.ssh_run")
+    def test_deploy_setup_dirs_with_opts(self, mock_ssh, mock_rsync, tmp_path):
+        (tmp_path / "t.j2").write_text("x\n")
+        d = self._make_deployer(
+            tmp_path,
+            files=[("t.j2", "/opt/conf")],
+            setup_dirs=[("/opt/podman/opencloud", {"owner": "1000:1000"}), ("/opt/podman/opencloud/config", {"owner": "1000:1000", "mode": "700"})],
+        )
+        from lib.jinja import create_jinja_env
+        hosts = {"srv1": {"address": "s.example.com"}}
+        secrets = {"host": "srv1"}
+        d.deploy(hosts, secrets, create_jinja_env(tmp_path))
+        mkdir_calls = [c for c in mock_ssh.call_args_list if "mkdir" in str(c)]
+        assert len(mkdir_calls) == 1
+        chown_chmod = [c for c in mock_ssh.call_args_list if "chown" in str(c) or "chmod" in str(c)]
+        assert len(chown_chmod) >= 2
+
     @patch("lib.deploy.rsync_file", return_value=True)
     @patch("lib.deploy.ssh_run")
     def test_deploy_applies_opts(self, mock_ssh, mock_rsync, tmp_path):
