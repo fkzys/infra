@@ -2,7 +2,7 @@
 
 ## Single-instance vs multi-instance
 
-Services deployed to **one server** (synapse, nextcloud, element, element-call, mirotalk, backup) have `host: server1` in their secrets.
+Services deployed to **one server** (synapse, opencloud, element, element-call, mirotalk, backup) have `host: server1` in their secrets.
 
 Services deployed to **multiple servers** (traefik, metrics, wireguard, sing-box, system, firewall, i2p) have `instances:` with a `host:` reference per instance and support `--all`.
 
@@ -28,7 +28,16 @@ Controlled by `behind_cf` flag in service secrets.
 
 ## Pod vs shared network
 
-Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, nextcloud + mariadb + valkey + nginx, element-call (livekit + lk-jwt).
+Some services use a Quadlet **Pod** (shared network namespace, containers talk via `localhost`): synapse + postgresql, opencloud + radicale, element-call (livekit + lk-jwt).
+
+## OpenCloud
+
+`opencloud` runs OpenCloud and Radicale in one pod. Only OpenCloud is published
+through Traefik (port 9200); its proxy config
+(`/opt/podman/opencloud/config/proxy.yaml`) forwards `/caldav/`, `/carddav/`,
+`/.well-known/caldav` and `/.well-known/carddav` to Radicale. OpenCloud
+authenticates the request and passes the user in `X-Remote-User`; Radicale uses
+`http_x_remote_user` auth and must not be exposed directly.
 
 ## Sing-box
 
