@@ -1,0 +1,10 @@
+# Managed by infra repo
+[Unit]
+Description=Restic repository pruning timer
+
+[Timer]
+OnCalendar={{ backup.prune_schedule }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

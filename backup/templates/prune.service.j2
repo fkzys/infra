@@ -1,0 +1,10 @@
+# Managed by infra repo
+[Unit]
+Description=Restic repository pruning
+
+[Service]
+Type=oneshot
+ExecStart=/root/scripts/prune.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

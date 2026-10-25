@@ -13,9 +13,12 @@ deployer = ServiceDeployer({
         ('backup.sh.j2', '/root/scripts/backup.sh', {'owner': 'root:root', 'mode': '700'}),
         ('backup.service.j2', '/etc/systemd/system/backup.service'),
         ('backup.timer.j2', '/etc/systemd/system/backup.timer'),
+        ('prune.sh.j2', '/root/scripts/prune.sh', {'owner': 'root:root', 'mode': '700'}),
+        ('prune.service.j2', '/etc/systemd/system/prune.service'),
+        ('prune.timer.j2', '/etc/systemd/system/prune.timer'),
     ],
     'setup_dirs': ['/root/scripts'],
-    'restart_cmd': 'systemctl daemon-reload && systemctl enable --now backup.timer',
+    'restart_cmd': 'systemctl daemon-reload && systemctl enable --now backup.timer prune.timer',
 })
 
 if __name__ == '__main__':
