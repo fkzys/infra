@@ -1,0 +1,22 @@
+#!/bin/bash
+set -euo pipefail
+export HOME=/root
+export RESTIC_PASSWORD="{{ backup.repo_password }}"
+
+{% for repo in backup.repositories %}
+echo "=== {{ repo.name }} ==="
+
+export RESTIC_REPOSITORY="s3:{{ repo.endpoint }}/{{ repo.bucket }}/{{ repo.prefix }}"
+export AWS_ACCESS_KEY_ID="{{ repo.access_key }}"
+export AWS_SECRET_ACCESS_KEY="{{ repo.secret_key }}"
+export AWS_DEFAULT_REGION="{{ repo.region }}"
+
+restic forget \
+  --host "{{ backup.hostname }}" \
+  --keep-daily 7 \
+  --keep-weekly 4 \
+  --keep-monthly 6 \
+  --prune
+
+{% endfor %}
+echo "=== prune complete ==="

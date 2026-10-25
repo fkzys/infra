@@ -1,48 +1,40 @@
 #!/bin/bash
 set -euo pipefail
 export HOME=/root
+export RESTIC_PASSWORD="{{ backup.repo_password }}"
 
-SNAP_NC="/opt/podman/nextcloud-snap"
+SNAP_CL="/opt/podman/opencloud-snap"
 SNAP_SY="/opt/podman/synapse-snap"
+SNAP_RL="/opt/podman/radicale-snap"
 
 cleanup() {
-  btrfs subvolume delete "$SNAP_NC" 2>/dev/null || true
+  btrfs subvolume delete "$SNAP_CL" 2>/dev/null || true
   btrfs subvolume delete "$SNAP_SY" 2>/dev/null || true
-  kopia repo disconnect 2>/dev/null || true
+  btrfs subvolume delete "$SNAP_RL" 2>/dev/null || true
 }
 trap cleanup EXIT
 
 # btrfs snapshots
-btrfs subvolume snapshot /opt/podman/nextcloud "$SNAP_NC"
+btrfs subvolume snapshot /opt/podman/opencloud "$SNAP_CL"
 btrfs subvolume snapshot /opt/podman/synapse "$SNAP_SY"
+btrfs subvolume snapshot /opt/podman/radicale "$SNAP_RL"
 
-# clean nextcloud snapshot — keep only data, config, custom_apps
-find "$SNAP_NC/nextcloud" -mindepth 1 \
-  ! -path "$SNAP_NC/nextcloud/custom_apps" \
-  ! -path "$SNAP_NC/nextcloud/custom_apps/*" \
-  ! -path "$SNAP_NC/nextcloud/data" \
-  ! -path "$SNAP_NC/nextcloud/data/*" \
-  ! -path "$SNAP_NC/nextcloud/config" \
-  ! -path "$SNAP_NC/nextcloud/config/config.php" \
+# clean opencloud snapshot
+find "$SNAP_CL" -mindepth 1 \
+  -path "$SNAP_CL/data/search/*" \
   -delete 2>/dev/null || true
-rm -f "$SNAP_NC/log/"*
 
 {% for repo in backup.repositories %}
 echo "=== {{ repo.name }} ==="
-kopia repo connect s3 \
-  --endpoint="{{ repo.endpoint }}" \
-  --bucket="{{ repo.bucket }}" \
-  --prefix="{{ repo.prefix }}" \
-  --region="{{ repo.region }}" \
-  --access-key="{{ repo.access_key }}" \
-  --secret-access-key="{{ repo.secret_key }}" \
-  -p "{{ backup.kopia_password }}" \
-  --override-hostname="{{ backup.hostname }}" \
-  --override-username="root"
 
-kopia snapshot create "$SNAP_NC"
-kopia snapshot create "$SNAP_SY"
-kopia repo disconnect
+export RESTIC_REPOSITORY="s3:{{ repo.endpoint }}/{{ repo.bucket }}/{{ repo.prefix }}"
+export AWS_ACCESS_KEY_ID="{{ repo.access_key }}"
+export AWS_SECRET_ACCESS_KEY="{{ repo.secret_key }}"
+export AWS_DEFAULT_REGION="{{ repo.region }}"
+
+restic backup --host "{{ backup.hostname }}" --tag opencloud "$SNAP_CL"
+restic backup --host "{{ backup.hostname }}" --tag synapse "$SNAP_SY"
+restic backup --host "{{ backup.hostname }}" --tag radicale "$SNAP_RL"
 
 {% endfor %}
 echo "=== backup complete ==="
