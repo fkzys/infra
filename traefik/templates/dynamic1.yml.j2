@@ -14,23 +14,6 @@ http:
         browserXssFilter: true
         customRequestHeaders:
           X-Forwarded-Proto: "https"
-    nextcloud-reply_dav:
-      redirectregex:
-        regex: "https://(.*)/.well-known/(card|cal)dav"
-        replacement: "https://$$1/remote.php/dav"
-        permanent: true
-    nextcloud-redirect_dav:
-      redirectregex:
-        regex: "https://(.*)/.well-known/(card|cal)dav"
-        replacement: "https://$$1/remote.php/dav"
-    nextcloud-redirect_finger:
-      redirectregex:
-        regex: "https://(.*)/.well-known/webfinger"
-        replacement: "https://$$1/index.php/.well-known/webfinger"
-    nextcloud-redirect_nodeinfo:
-      redirectregex:
-        regex: "https://(.*)/.well-known/nodeinfo"
-        replacement: "https://$$1/index.php/.well-known/nodeinfo"
     blacklist:
       ipAllowList:
         sourceRange:

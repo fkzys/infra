@@ -25,7 +25,7 @@ No network access, no SSH, no real secrets. Subprocess calls and HTTP requests a
 - **Remote**: SSH commands, default port, read/write helpers, rsync change detection.
 - **Cloudflare**: uploader creation, upload, delete, list/pagination, delete by prefix.
 - **Deploy helpers**: target resolution, owner/mode formatting.
-- **ServiceDeployer**: config parsing, multi-instance context, rendering, deployment, restart behavior, callable files/setup dirs/restart command.
+- **ServiceDeployer**: config parsing, multi-instance context, rendering, deployment, restart behavior, callable files/setup dirs/restart command, owner/mode on files and setup dirs.
 
 ## `test_wlb.py`
 

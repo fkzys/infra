@@ -1,0 +1,25 @@
+[server]
+hosts = 0.0.0.0:5232
+
+[auth]
+type = http_x_remote_user
+
+[logging]
+level = warning
+
+[storage]
+filesystem_folder = /var/lib/radicale/collections
+predefined_collections = {
+    "def-addressbook": {
+        "D:displayname": "Personal Address Book",
+        "tag": "VADDRESSBOOK"
+    },
+    "def-calendar": {
+        "C:supported-calendar-component-set": "VEVENT,VJOURNAL,VTODO",
+        "D:displayname": "Personal Calendar",
+        "tag": "VCALENDAR"
+    }
+  }
+
+[web]
+type = none

@@ -10,7 +10,7 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
 
 - **[usage](docs/usage.md)**
     - [Adding a new service](docs/usage.md#adding-a-new-service)
-    - [File permissions](docs/usage.md#file-permissions)
+    - [File and directory permissions](docs/usage.md#file-and-directory-permissions)
     - [Restart command](docs/usage.md#restart-command)
     - [Dynamic file paths](docs/usage.md#dynamic-file-paths)
     - [Multi-instance services with `instances_key`](docs/usage.md#multi-instance-services-with-instances_key)
@@ -27,7 +27,9 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
     - [Containerized vs native](docs/notes.md#containerized-vs-native)
     - [Traefik middleware notes](docs/notes.md#traefik-middleware-notes)
     - [Pod vs shared network](docs/notes.md#pod-vs-shared-network)
+    - [OpenCloud](docs/notes.md#opencloud)
     - [Sing-box](docs/notes.md#sing-box)
+    - [MatrixRTC / LiveKit AS](docs/notes.md#matrixrtc--livekit-as)
 
 ## Stack
 
@@ -35,13 +37,13 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
 |---|---|
 | `system` | Base OS hardening: sshd (TCP forwarding allowed), sysctl, systemd-networkd, maintenance timers (btrfs scrub, paccache, sysctl reapply) |
 | `firewall` | Firewalld zones: public, wireguard, filter-closed, trusted — ports opened per-instance from secrets |
-| `backup` | Kopia snapshots to S3 with btrfs atomic snapshots, systemd timer |
+| `backup` | Restic backups to S3: btrfs snapshots of opencloud, radicale and synapse, backup + prune timers |
 | `certs` | Centralized wildcard TLS certificates (Google ACME + Cloudflare DNS challenge via lego) |
 | `traefik` | Reverse proxy, TLS termination |
 | `synapse` | Matrix homeserver + PostgreSQL |
 | `element` | Element Web + Synapse Admin |
 | `element-call` | Element Call via LiveKit SFU + lk-jwt-service |
-| `nextcloud` | Nextcloud + MariaDB + Valkey + Nginx + cron timer |
+| `opencloud` | OpenCloud (file sync/share) + Radicale (CalDAV/CardDAV) in one pod |
 | `metrics` | Prometheus + Node Exporter + Grafana |
 | `i2p` | I2P anonymous overlay network (i2pd daemon, native, no container) |
 | `mirotalk` | MiroTalk SFU — WebRTC video conferencing (Podman container) |
@@ -123,6 +125,7 @@ And service secrets are stored at:
 - rsync
 - [lego](https://github.com/go-acme/lego) (for `certs/`)
 - [dnsproxy](https://github.com/AdguardTeam/dnsproxy) (for `certs/`)
+- [restic](https://restic.net/) (on hosts running `backup/`)
 
 ## License
 

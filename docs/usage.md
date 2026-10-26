@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
 5. Test: `render` then `diff` then `deploy`
 
-## File permissions
+## File and directory permissions
 
 Files in the `files` list support an optional third element — a dict with `owner` and/or `mode`:
 
@@ -45,12 +45,24 @@ Files in the `files` list support an optional third element — a dict with `own
 'files': [
     ('config.yml.j2', '/opt/podman/myservice/config.yml'),                           # no perms
     ('wg0.conf.j2', '/etc/wireguard/wg0.conf', {'owner': 'root:root', 'mode': '600'}),   # both
-    ('config.php.j2', '/opt/podman/nextcloud/config.php', {'owner': '33:33'}),            # owner only
+    ('opencloud.proxy.yaml.j2', '/opt/podman/opencloud/config/proxy.yaml', {'owner': '1000:1000', 'mode': '640'}),  # owner + mode
     ('backup.sh.j2', '/root/scripts/backup.sh', {'owner': 'root:root', 'mode': '700'}),  # script
 ]
 ```
 
 Applied after rsync via `chown`/`chmod` over SSH. Shown in `render` and `diff` output.
+
+Directories in `setup_dirs` accept the same optional `{'owner', 'mode'}` dict:
+
+```python
+'setup_dirs': [
+    '/root/scripts',
+    ('/opt/podman/opencloud', {'owner': '1000:1000'}),
+    ('/opt/podman/opencloud/config', {'owner': '1000:1000', 'mode': '750'}),
+],
+```
+
+Directories are created with `mkdir -p`, then `chown`/`chmod` over SSH. Unlike file permissions, directory permissions are not shown in `render`/`diff`.
 
 ## Restart command
 
@@ -108,7 +120,7 @@ The CLI (`list`, `render`, `diff`, `deploy --all`) uses this key to enumerate av
 
 ## CLI
 
-### Single-instance (synapse, nextcloud, element, element-call, mirotalk, backup)
+### Single-instance (synapse, opencloud, element, element-call, mirotalk, backup)
 
 ```bash
 cd synapse/

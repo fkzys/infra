@@ -130,6 +130,20 @@ instances:
     i2pd: true
 ```
 
+### opencloud secrets
+
+```yaml
+host: server1
+
+opencloud:
+  domain: cloud.example.com
+  initial_admin_password: "..."
+  image: "..."                 # optional, default opencloudeu/opencloud-rolling:latest
+  radicale_image: "..."        # optional, default docker.io/opencloudeu/radicale:latest
+  trusted_proxies: "..."       # optional, passed as TRUSTED_PROXIES
+  collabora_domain: "..."      # optional, passed as OC_COLLABORA_DOMAIN
+```
+
 ### backup secrets
 
 ```yaml
@@ -137,8 +151,9 @@ host: server1
 
 backup:
   hostname: vps1
-  kopia_password: "..."
+  repo_password: "..."
   schedule: "*-*-* 04:00:00"
+  prune_schedule: "*-*-* 05:00:00"
   repositories:
     - name: s3-backup
       bucket: my-bucket
@@ -148,6 +163,9 @@ backup:
       access_key: "..."
       secret_key: "..."
 ```
+
+Snapshots are tagged `opencloud`, `synapse` and `radicale`. `prune.sh` keeps 7
+daily, 4 weekly and 6 monthly snapshots per repository.
 
 ### mirotalk secrets
 
@@ -341,7 +359,7 @@ Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-on
 Native service configs:
 - system → `/etc/ssh/sshd_config`, `/etc/sysctl.d/`, `/etc/systemd/network/`, `/etc/systemd/journald.conf`, systemd timers
 - firewall → `/etc/firewalld/zones/`
-- backup → `/root/scripts/backup.sh`, systemd service + timer
+- backup → `/root/scripts/backup.sh`, `/root/scripts/prune.sh`, backup + prune systemd service/timer
 - wireguard → `/etc/wireguard/wg0.conf`
 - i2p → `/etc/i2pd/i2pd.conf`
 
@@ -373,8 +391,8 @@ Router configs (via KV):
     ├── 10-sysctl_user.service
     ├── backup.service
     ├── backup.timer
-    ├── nextcloud-cron_podman.service
-    └── nextcloud-cron_podman.timer
+    ├── prune.service
+    └── prune.timer
 
 /etc/firewalld/zones/
 ├── public.xml
@@ -408,11 +426,12 @@ Router configs (via KV):
 │   ├── data/*.log.config
 │   ├── data/media_store/
 │   └── db/
-├── nextcloud/
-│   ├── nextcloud/config/config.php
-│   ├── nginx.conf
-│   ├── db/
-│   └── log/
+├── opencloud/
+│   ├── config/proxy.yaml
+│   └── data/
+├── radicale/
+│   ├── config/config
+│   └── data/
 ├── element_synapse_admin/
 │   ├── element_config.json
 │   └── synapse_config.json
