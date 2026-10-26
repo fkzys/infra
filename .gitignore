@@ -3,7 +3,4 @@ sing-box/.output
 router/.output
 *__pycache__*
 certs/.certstore/
-graphify-out/cache/
-**.graphify_*.json
-**.graphify_python
 .omo
