@@ -5,6 +5,7 @@ Description=LiveKit JWT auth service
 Image=ghcr.io/element-hq/lk-jwt-service:0.9.0
 ContainerName=lk_jwt_1
 Pod=element-call.pod
+Environment=LIVEKIT_LOG_LEVEL=warn
 Environment=LIVEKIT_JWT_BIND=:8080
 Environment=LIVEKIT_URL=wss://{{ livekit.rtc_domain }}/livekit/sfu
 Environment=LIVEKIT_KEY={{ livekit.key }}
