@@ -22,6 +22,7 @@ btrfs subvolume snapshot /opt/podman/radicale "$SNAP_RL"
 # clean opencloud snapshot
 find "$SNAP_CL" -mindepth 1 \
   -path "$SNAP_CL/data/search/*" \
+  -path "$SNAP_CL/data/thumbnails/cache/*" \
   -delete 2>/dev/null || true
 
 {% for repo in backup.repositories %}
