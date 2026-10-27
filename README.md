@@ -14,6 +14,7 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
     - [Restart command](docs/usage.md#restart-command)
     - [Dynamic file paths](docs/usage.md#dynamic-file-paths)
     - [Multi-instance services with `instances_key`](docs/usage.md#multi-instance-services-with-instances_key)
+    - [SSH multiplexing](docs/usage.md#ssh-multiplexing)
     - [CLI](docs/usage.md#cli)
 
 - **[structure](docs/structure.md)**

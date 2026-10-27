@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 
 from lib.sops import decrypt_sops
-from lib.remote import ssh_run, ssh_read_file, rsync_file
+from lib.remote import ssh_run, ssh_read_file, rsync_file, RemoteError
 from lib.jinja import create_jinja_env
 
 HOSTS_FILE = Path(__file__).resolve().parent.parent / 'secrets' / 'hosts.enc.yaml'
@@ -116,7 +116,7 @@ class ServiceDeployer:
             print(env.get_template(tpl).render(**ctx))
             print()
 
-    def diff(self, hosts, secrets, env, instance_name=None):
+    def diff(self, hosts, secrets, env, instance_name=None) -> bool:
         ctx = self._build_context(secrets, instance_name)
         target, port = self._get_target(hosts, secrets, instance_name)
         label = instance_name or self._get_host_ref(secrets)
@@ -126,7 +126,16 @@ class ServiceDeployer:
             tpl, rp, opts = self._parse_file_entry(entry, secrets)
             name = tpl.removesuffix('.j2')
             rendered = env.get_template(tpl).render(**ctx)
-            remote_content = ssh_read_file(target, rp, port)
+            try:
+                remote_content = ssh_read_file(target, rp, port)
+            except RemoteError as exc:
+                detail = str(exc)
+                if '\n' in detail:
+                    print(f"\033[1;35munreachable\033[0m:", file=sys.stderr)
+                    print(detail, file=sys.stderr)
+                else:
+                    print(f"\033[1;35munreachable\033[0m: {detail}", file=sys.stderr)
+                return False
             if rendered == remote_content:
                 print(f"  \033[0;32m✓\033[0m {name}{_fmt_opts(opts)}")
             else:
@@ -135,8 +144,12 @@ class ServiceDeployer:
                      tempfile.NamedTemporaryFile(mode='w', suffix='.txt') as rf:
                     lf.write(rendered); lf.flush()
                     rf.write(remote_content); rf.flush()
-                    subprocess.run(['diff', '--color', '-u', rf.name, lf.name])
+                    subprocess.run(['diff', '--color', '-u',
+                                    '--label', rp,
+                                    '--label', str(Path(self.templates_dir) / tpl),
+                                    rf.name, lf.name])
                 print()
+        return True
 
     def deploy(self, hosts, secrets, env, instance_name=None, no_restart=False):
         ctx = self._build_context(secrets, instance_name)
@@ -227,13 +240,20 @@ class ServiceDeployer:
             else:
                 parser.error(f"'{args.command}' requires instance name(s) or --all")
 
+            failed = []
             for inst in instances:
                 if args.command == 'render':
                     self.render(secrets, env, inst)
                 elif args.command == 'diff':
-                    self.diff(hosts, secrets, env, inst)
+                    if not self.diff(hosts, secrets, env, inst):
+                        failed.append(inst)
                 elif args.command == 'deploy':
                     self.deploy(hosts, secrets, env, inst, no_restart=args.no_restart)
+
+            if failed:
+                print(f"---\n\033[1;33mResult:\033[0m\n{len(failed)} of {len(instances)} unreachable: "
+                      f"{', '.join(failed)}", file=sys.stderr)
+                sys.exit(1)
         else:
             if args.command == 'list':
                 host_ref = secrets['host']
@@ -243,6 +263,7 @@ class ServiceDeployer:
             if args.command == 'render':
                 self.render(secrets, env)
             elif args.command == 'diff':
-                self.diff(hosts, secrets, env)
+                if not self.diff(hosts, secrets, env):
+                    sys.exit(1)
             elif args.command == 'deploy':
                 self.deploy(hosts, secrets, env, no_restart=args.no_restart)

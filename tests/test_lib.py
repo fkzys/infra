@@ -112,15 +112,67 @@ class TestSops:
 
 
 class TestRemote:
+    @pytest.fixture(autouse=True)
+    def _control_dir(self, tmp_path, monkeypatch):
+        import lib.remote as remote
+        monkeypatch.setattr(remote, "_SOCK_DIR", tmp_path / "cm")
+
     @patch("subprocess.run")
     def test_ssh_run_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         from lib.remote import ssh_run
         ssh_run("user@host", "echo hi", port=2222)
-        mock_run.assert_called_once_with(
-            ["ssh", "-p", "2222", "user@host", "echo hi"],
-            capture_output=True, text=True,
-        )
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert args[0] == "ssh"
+        assert args[1:3] == ["-p", "2222"]
+        assert args[-2:] == ["user@host", "echo hi"]
+
+    @patch("subprocess.run")
+    def test_ssh_run_multiplexes(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        from lib.remote import ssh_run
+        ssh_run("user@host", "ls")
+        args = mock_run.call_args[0][0]
+        assert "ControlMaster=auto" in args
+        assert "ControlPersist=60s" in args
+        control_path = next(a for a in args if a.startswith("ControlPath="))
+        assert control_path.endswith("/%C")
+
+    @patch("subprocess.run")
+    def test_ssh_read_file_multiplexes(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="", returncode=0)
+        from lib.remote import ssh_read_file
+        ssh_read_file("user@host", "/etc/conf")
+        assert "ControlMaster=auto" in mock_run.call_args[0][0]
+
+    @patch("subprocess.run")
+    def test_write_secret_remote_multiplexes(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+        from lib.remote import write_secret_remote
+        write_secret_remote("user@host", "secret_data", "/etc/key")
+        assert "ControlMaster=auto" in mock_run.call_args[0][0]
+
+    @patch("subprocess.run")
+    def test_rsync_shares_control_socket(self, mock_run):
+        mock_run.return_value = MagicMock(stdout="", returncode=0)
+        from lib.remote import rsync_file
+        rsync_file(Path("/tmp/f"), "user@host", "/etc/f", 2222)
+        args = mock_run.call_args[0][0]
+        ssh_cmd = args[args.index("-e") + 1]
+        assert ssh_cmd.startswith("ssh ")
+        assert "-p 2222" in ssh_cmd
+        assert "ControlMaster=auto" in ssh_cmd
+        assert "ControlPath=" in ssh_cmd
+        assert "ControlPersist=60s" in ssh_cmd
+
+    def test_control_socket_dir_is_private(self, tmp_path, monkeypatch):
+        import lib.remote as remote
+        d = tmp_path / "cm"
+        d.mkdir(mode=0o755)
+        monkeypatch.setattr(remote, "_SOCK_DIR", d)
+        remote._ssh_opts(22)
+        assert (d.stat().st_mode & 0o077) == 0
 
     @patch("subprocess.run")
     def test_ssh_run_default_port(self, mock_run):
@@ -139,15 +191,25 @@ class TestRemote:
 
     @patch("subprocess.run")
     def test_ssh_read_file(self, mock_run):
-        mock_run.return_value = MagicMock(stdout="file content\n")
+        mock_run.return_value = MagicMock(stdout="file content\n", returncode=0)
         from lib.remote import ssh_read_file
         assert ssh_read_file("user@host", "/etc/conf", port=22) == "file content\n"
 
     @patch("subprocess.run")
     def test_ssh_read_file_missing_returns_empty(self, mock_run):
-        mock_run.return_value = MagicMock(stdout="")
+        mock_run.return_value = MagicMock(stdout="", returncode=0)
         from lib.remote import ssh_read_file
         assert ssh_read_file("user@host", "/nonexistent") == ""
+
+    @patch("subprocess.run")
+    def test_ssh_read_file_failure_raises(self, mock_run):
+        mock_run.return_value = MagicMock(
+            stdout="", returncode=255,
+            stderr="ssh: connect to host s.example.com port 22: Connection refused",
+        )
+        from lib.remote import ssh_read_file, RemoteError
+        with pytest.raises(RemoteError, match="Connection refused"):
+            ssh_read_file("user@host", "/etc/conf")
 
     @patch("subprocess.run")
     def test_rsync_checksum_changed(self, mock_run):
@@ -729,3 +791,88 @@ class TestServiceDeployer:
         d.deploy(hosts, secrets, create_jinja_env(tmp_path))
         mkdir_calls = [str(c) for c in mock_ssh.call_args_list if "mkdir" in str(c)]
         assert any("/opt/static/data" in c for c in mkdir_calls)
+
+
+class TestDiff:
+    def _make_deployer(self, tmp_path, **overrides):
+        from lib.deploy import ServiceDeployer
+        config = {
+            "templates_dir": tmp_path,
+            "secrets_file": Path("/tmp/s"),
+            "files": [("t.j2", "/opt/conf")],
+            **overrides,
+        }
+        return ServiceDeployer(config)
+
+    @patch("lib.deploy.ssh_read_file")
+    def test_diff_reports_unreachable_host(self, mock_read, tmp_path, capsys):
+        from lib.jinja import create_jinja_env
+        from lib.remote import RemoteError
+        (tmp_path / "t.j2").write_text("x\n")
+        d = self._make_deployer(tmp_path)
+        mock_read.side_effect = RemoteError("ssh: connect to host s.example.com port 22: Connection refused")
+        ok = d.diff({"srv1": {"address": "s.example.com"}}, {"host": "srv1"}, create_jinja_env(tmp_path))
+        assert ok is False
+        captured = capsys.readouterr()
+        assert "unreachable" in captured.err
+        assert "srv1" in captured.out
+        assert "✓" not in captured.out
+
+    @patch("lib.deploy.load_hosts")
+    @patch("lib.deploy.decrypt_sops")
+    @patch("lib.deploy.ssh_read_file")
+    def test_diff_all_continues_after_unreachable(self, mock_read, mock_sops, mock_hosts, tmp_path, capsys, monkeypatch):
+        from lib.remote import RemoteError
+        (tmp_path / "t.j2").write_text("x\n")
+        d = self._make_deployer(tmp_path, multi_instance=True)
+        mock_sops.return_value = {
+            "instances": {"dead": {"host": "h1"}, "alive": {"host": "h2"}},
+        }
+        mock_hosts.return_value = {
+            "h1": {"address": "1.1.1.1"},
+            "h2": {"address": "2.2.2.2"},
+        }
+
+        def fake_read(target, path, port=22):
+            if target == "root@1.1.1.1":
+                raise RemoteError("ssh: connect to host 1.1.1.1 port 22: Connection refused")
+            return "x\n"
+
+        mock_read.side_effect = fake_read
+        monkeypatch.setattr(sys, "argv", ["deploy.py", "diff", "--all"])
+
+        with pytest.raises(SystemExit) as exc:
+            d.run_cli()
+        assert exc.value.code == 1
+
+        captured = capsys.readouterr()
+        assert "unreachable" in captured.err
+        assert captured.err.endswith("---\n\033[1;33mResult:\033[0m\n1 of 2 unreachable: dead\n")
+        assert "✓" in captured.out
+
+    @patch("lib.deploy.subprocess.run")
+    @patch("lib.deploy.ssh_read_file", return_value="old\n")
+    def test_diff_labels_files_with_remote_path(self, mock_read, mock_run, tmp_path):
+        from lib.jinja import create_jinja_env
+        (tmp_path / "t.j2").write_text("new\n")
+        d = self._make_deployer(tmp_path)
+        d.diff({"srv1": {"address": "s.example.com"}}, {"host": "srv1"}, create_jinja_env(tmp_path))
+        args = mock_run.call_args[0][0]
+        labels = [args[i + 1] for i, part in enumerate(args) if part == "--label"]
+        assert labels == ["/opt/conf", f"{tmp_path}/t.j2"]
+
+    @patch("lib.deploy.ssh_read_file")
+    def test_diff_multiline_ssh_error_keeps_layout(self, mock_read, tmp_path, capsys):
+        from lib.jinja import create_jinja_env
+        from lib.remote import RemoteError
+        (tmp_path / "t.j2").write_text("x\n")
+        d = self._make_deployer(tmp_path)
+        warn = (
+            "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n"
+            "@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @\n"
+            "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n"
+            "IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!"
+        )
+        mock_read.side_effect = RemoteError(warn)
+        d.diff({"srv1": {"address": "s.example.com"}}, {"host": "srv1"}, create_jinja_env(tmp_path))
+        assert capsys.readouterr().err == f"\033[1;35munreachable\033[0m:\n{warn}\n"

@@ -118,6 +118,31 @@ deployer = ServiceDeployer({
 
 The CLI (`list`, `render`, `diff`, `deploy --all`) uses this key to enumerate available instances. This allows a single secrets file to manage different logical groups (e.g., proxy nodes and relay nodes) with separate deploy scripts.
 
+## SSH multiplexing
+
+All remote work goes through `lib/remote.py`, which enables OpenSSH connection multiplexing
+(`ControlMaster=auto` + `ControlPersist=60s`). A deploy opens **one** TCP connection and
+authenticates **once** per host; every following `ssh` — including the `ssh` that rsync
+spawns via `-e` — reuses it as a channel:
+
+```
+first ssh/rsync → master connection + auth
+rest of the run → channels over the same connection
+```
+
+One master per `user@host:port`, named by OpenSSH's `%C` token (hash of local host, remote
+host, port and user). Control sockets live in `$XDG_RUNTIME_DIR/infra-cm/` (or
+`~/.ssh/infra-cm/` when `XDG_RUNTIME_DIR` is unset); ssh removes them when the master
+exits. Nothing in a service `deploy.py` has to change.
+
+Trade-off: the master stays alive for 60s after the last command, so that authenticated
+session is reused without re-auth until it expires. To change or disable persistence,
+edit `CONTROL_PERSIST` in `lib/remote.py` (`"no"` disables it). To force fresh connections:
+
+```bash
+rm -rf "${XDG_RUNTIME_DIR:-$HOME/.ssh}/infra-cm"
+```
+
 ## CLI
 
 ### Single-instance (synapse, opencloud, element, element-call, mirotalk, backup)
@@ -143,6 +168,10 @@ python deploy.py diff --all
 python deploy.py deploy --all
 python deploy.py deploy --all --no-restart
 ```
+
+`diff` walks every requested instance: reachable hosts print their file status, unreachable
+ones print `<instance> unreachable: <ssh error>`, and the run ends with a non-zero exit
+code plus a summary of which instances failed. `deploy` still stops at the first failure.
 
 ### sing-box client/router configs
 
