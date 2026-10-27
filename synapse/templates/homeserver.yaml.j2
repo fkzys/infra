@@ -18,6 +18,12 @@ signing_key_path: "/data/{{ synapse.server_name }}.signing.key"
 trusted_key_servers:
   - server_name: "matrix.org"
 
+require_auth_for_profile_requests: true
+allow_profile_lookup_over_federation: false
+include_profile_data_on_invite: false
+enable_3pid_lookup: false
+user_ips_max_age: 7d
+
 public_baseurl: "https://{{ synapse.server_name }}"
 serve_server_wellknown: true
 
