@@ -23,6 +23,7 @@ Environment=OC_SHARING_PUBLIC_WRITEABLE_SHARE_MUST_HAVE_PASSWORD=true
 Environment=IDM_CREATE_DEMO_USERS=false
 Environment=IDM_ADMIN_PASSWORD={{ opencloud.initial_admin_password }}
 Environment=INITIAL_ADMIN_PASSWORD={{ opencloud.initial_admin_password }}
+Environment="WEB_OIDC_SCOPE=openid profile email offline_access"
 {% if opencloud.trusted_proxies is defined and opencloud.trusted_proxies %}Environment=TRUSTED_PROXIES={{ opencloud.trusted_proxies }}
 {% endif %}
 {% if opencloud.collabora_domain is defined and opencloud.collabora_domain %}Environment=OC_COLLABORA_DOMAIN={{ opencloud.collabora_domain }}
