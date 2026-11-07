@@ -7,6 +7,7 @@ ContainerName=grafana
 Pod=metrics.pod
 Volume=grafana_data:/var/lib/grafana
 AutoUpdate=registry
+Environment=GF_LOG_LEVEL=warn
 Label=traefik.enable=true
 Label=traefik.http.routers.http-metrics.entryPoints=http
 Label=traefik.http.routers.http-metrics.rule=Host(`{{ instance.domain }}`)

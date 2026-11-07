@@ -8,7 +8,7 @@ Pod=metrics.pod
 AutoUpdate=registry
 Volume=/opt/podman/metrics/prometheus/:/etc/prometheus/
 Volume=prometheus_data:/prometheus
-Exec=--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus
+Exec=--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --log.level=warn
 
 [Service]
 Restart=always
