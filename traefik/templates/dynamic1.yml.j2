@@ -11,7 +11,7 @@ http:
         forceSTSHeader: true
         stsPreload: true
         stsIncludeSubdomains: true
-        browserXssFilter: true
+        contentSecurityPolicy: "default-src 'self' * data: 'unsafe-inline' 'unsafe-eval';"
         customRequestHeaders:
           X-Forwarded-Proto: "https"
     blacklist:
