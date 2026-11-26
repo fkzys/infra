@@ -266,12 +266,6 @@ cert files and touching the dynamic config is enough, no container restart requi
 
 The same wildcard certificate is used by other native services — they read directly from `/etc/ssl/` on the host.
 
-Auto-renewal via cron:
-
-```
-0 3 * * * cd /path/to/infra/certs && python deploy.py renew >> /var/log/cert-renew.log 2>&1
-```
-
 ## License
 
 Fork-Parity-1.0.1
