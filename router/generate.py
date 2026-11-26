@@ -8,12 +8,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.sops import decrypt_sops
 from lib.jinja import create_jinja_env
-from lib.cloudflare import create_uploader
+from lib.cloudflare import create_uploader as create_cloudflare_uploader
+from lib.gcore import create_uploader as create_gcore_uploader
 
 BASE = Path(__file__).parent
 TEMPLATES_DIR = BASE / 'templates'
 SECRETS_FILE = BASE / 'secrets' / 'secrets.enc.yaml'
 OUTPUT_DIR = BASE / '.output'
+
+BACKENDS = {
+    'gcore': create_gcore_uploader,
+    'cloudflare': create_cloudflare_uploader,
+}
+DEFAULT_BACKEND = 'gcore'
+BACKEND_LABELS = {'gcore': 'Gcore', 'cloudflare': 'Cloudflare'}
 
 # (template, output_filename, kv_key)
 KV_FILES = [
@@ -33,11 +41,33 @@ LOCAL_FILES = [
 ]
 
 
-def build_context(secrets, router_name):
+def get_uploader(secrets, backend):
+    uploader = BACKENDS[backend](secrets)
+    if not uploader:
+        print(f"⚠ {BACKEND_LABELS[backend]} not configured",
+              file=sys.stderr)
+    return uploader
+
+
+def build_context(secrets, router_name, backend):
+    if backend == 'gcore':
+        url = (secrets.get('gcore') or {}).get('app_url', '').rstrip('/')
+        secret_key = 'gcore.app_url'
+    else:
+        worker = (secrets.get('cloudflare') or {}).get(
+            'worker_domain', '').rstrip('/')
+        url = f"https://{worker}" if worker else ''
+        secret_key = 'cloudflare.worker_domain'
+
+    if not url:
+        print(f"ERROR: router secrets need {secret_key} "
+              f"for the {backend} backend", file=sys.stderr)
+        sys.exit(1)
+
     return {
         'shared': secrets['shared'],
         'router': secrets['routers'][router_name],
-        'cloudflare': secrets.get('cloudflare', {}),
+        'config_url': url,
         'router_name': router_name,
     }
 
@@ -47,8 +77,8 @@ def cmd_list(secrets):
         print(f"  {name}")
 
 
-def cmd_render(secrets, env, router_name):
-    ctx = build_context(secrets, router_name)
+def cmd_render(secrets, env, router_name, backend):
+    ctx = build_context(secrets, router_name, backend)
     for tpl_name, out_name, _ in KV_FILES:
         print(f"\033[1;33m═══ {out_name} ═══\033[0m")
         print(env.get_template(tpl_name).render(**ctx))
@@ -59,17 +89,15 @@ def cmd_render(secrets, env, router_name):
         print()
 
 
-def cmd_generate(secrets, env, router_name, upload=False):
-    ctx = build_context(secrets, router_name)
+def cmd_generate(secrets, env, router_name, backend, upload=False):
+    ctx = build_context(secrets, router_name, backend)
     router_dir = OUTPUT_DIR / router_name
     router_dir.mkdir(parents=True, exist_ok=True)
 
     uploader = None
     token = secrets['routers'][router_name].get('token', '')
     if upload:
-        uploader = create_uploader(secrets)
-        if not uploader:
-            print("⚠ Cloudflare not configured", file=sys.stderr)
+        uploader = get_uploader(secrets, backend)
 
     for tpl_name, out_name, kv_key in KV_FILES:
         rendered = env.get_template(tpl_name).render(**ctx)
@@ -95,6 +123,9 @@ def main():
     parser.add_argument('router', nargs='*')
     parser.add_argument('--upload', action='store_true')
     parser.add_argument('--all', action='store_true')
+    parser.add_argument('--backend', choices=sorted(BACKENDS),
+                        default=DEFAULT_BACKEND,
+                        help=f'Config storage backend (default: {DEFAULT_BACKEND})')
     args = parser.parse_args()
 
     secrets = decrypt_sops(SECRETS_FILE)
@@ -121,9 +152,9 @@ def main():
     for name in names:
         print(f"\033[1;36m── {name} ──\033[0m")
         if args.command == 'render':
-            cmd_render(secrets, env, name)
+            cmd_render(secrets, env, name, args.backend)
         else:
-            cmd_generate(secrets, env, name, upload=args.upload)
+            cmd_generate(secrets, env, name, args.backend, upload=args.upload)
         print()
 
 

@@ -4,7 +4,9 @@
 ![License](https://img.shields.io/badge/license-Fork_Parity_1.0.1-orange)
 [![Spec](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/fkzys/specs/refs/heads/main/version.json&maxAge=300)](https://github.com/fkzys/specs)
 
-Infrastructure-as-code for a personal server stack and home network. Podman Quadlet configs, OpenWrt router configs, service configs and secrets — all templated, versioned and deployed over SSH or distributed via Cloudflare Workers KV.
+Infrastructure-as-code for a personal server stack and home network.\
+Podman Quadlet configs, OpenWrt router configs, service configs and secrets;\
+All templated, versioned and deployed over SSH or distributed via Gcore Edge Storage or Cloudflare Workers KV.
 
 ## Docs
 
@@ -36,7 +38,7 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
 
 | Service | What |
 |---|---|
-| `system` | Base OS hardening: sshd (TCP forwarding allowed), sysctl, systemd-networkd, maintenance timers (btrfs scrub, paccache, sysctl reapply) |
+| `system` | Base OS hardening: sshd, sysctl, systemd-networkd, maintenance timers (btrfs scrub, paccache, sysctl reapply) |
 | `firewall` | Firewalld zones: public, wireguard, filter-closed, trusted — ports opened per-instance from secrets |
 | `backup` | Restic backups to S3: btrfs snapshots of opencloud, radicale and synapse, backup + prune timers |
 | `certs` | Centralized wildcard TLS certificates (Google ACME + Cloudflare DNS challenge via lego) |
@@ -49,8 +51,8 @@ Infrastructure-as-code for a personal server stack and home network. Podman Quad
 | `i2p` | I2P anonymous overlay network (i2pd daemon, native, no container) |
 | `mirotalk` | MiroTalk SFU — WebRTC video conferencing (Podman container) |
 | `wireguard` | WireGuard mesh + client tunnels (native, no container) |
-| `sing-box` | Proxy server + client/router config generator with Cloudflare KV distribution |
-| `router` | OpenWrt router configs: nftables tproxy, network, wireless, firewall, dhcp — distributed via KV |
+| `sing-box` | Proxy server + client/router config generator with Gcore Edge Storage distribution |
+| `router` | OpenWrt router configs: nftables tproxy, network, wireless, firewall, dhcp — distributed via Gcore Edge Storage |
 
 ## Structure
 
@@ -60,20 +62,20 @@ infra/
 ├── certs/
 │   ├── deploy.py
 │   ├── secrets/
-│   └── .certstore/              ← gitignored, lego state + certs
+│   └── .certstore/            <- gitignored, lego state + certs
 ...
 ├── sing-box/
-│   ├── deploy.py              ← server deploy (render/diff/deploy)
-│   ├── generate.py            ← client/router config generator + KV
+│   ├── deploy.py              <- server deploy (render/diff/deploy)
+│   ├── generate.py            <- client/router config generator + KV
 │   ├── templates/
 │   ├── secrets/
-│   └── .output/               ← gitignored
+│   └── .output/               <- gitignored
 ...
 └── router/
-    ├── generate.py            ← OpenWrt config generator + KV
+    ├── generate.py            <- OpenWrt config generator + KV
     ├── templates/
     ├── secrets/
-    └── .output/               ← gitignored
+    └── .output/               <- gitignored
 ```
 
 ## How it works
@@ -95,10 +97,10 @@ Each service has:
 
 ### Router/client config flow
 
-`sing-box/generate.py` and `router/generate.py` use a different delivery model — configs are rendered locally, uploaded to Cloudflare Workers KV, and pulled by devices over HTTPS:
+`sing-box/generate.py` and `router/generate.py` use a different delivery model: configs are rendered locally, uploaded to Gcore and pulled by devices over HTTPS:
 
 ```
-sops decrypt → jinja render → KV upload → device wget/curl
+sops decrypt -> jinja render -> KV upload -> device wget/curl
 ```
 
 This avoids SSH to constrained devices (OpenWrt routers, phones) while keeping configs versioned and secrets encrypted at rest.

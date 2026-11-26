@@ -1,6 +1,6 @@
 #!/bin/sh
 TOKEN="{{ router.token }}"
-WORKER="https://{{ cloudflare.worker_domain }}"
+WORKER="{{ config_url }}"
 
 download() {
     local key="$1" dest="$2"

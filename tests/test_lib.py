@@ -403,6 +403,155 @@ class TestCloudflare:
 
 
 # ═══════════════════════════════════════════════════
+# lib/gcore.py
+# ═══════════════════════════════════════════════════
+
+
+class TestGcore:
+    def test_create_uploader_valid(self):
+        from lib.gcore import create_uploader
+        secrets = {
+            "gcore": {
+                "api_token": "tok", "store_id": 130,
+                "app_url": "https://app.example.com",
+            }
+        }
+        u = create_uploader(secrets)
+        assert u is not None
+        assert u.store_id == 130
+        assert u.app_url == "https://app.example.com"
+
+    def test_create_uploader_strips_trailing_slash(self):
+        from lib.gcore import create_uploader
+        secrets = {
+            "gcore": {
+                "api_token": "t", "store_id": 1,
+                "app_url": "https://app.example.com/",
+            }
+        }
+        assert not create_uploader(secrets).app_url.endswith("/")
+
+    @pytest.mark.parametrize("gc", [
+        {"api_token": "tok"},
+        {"api_token": "tok", "store_id": 1},
+        {"store_id": 1, "app_url": "https://app.example.com"},
+        {},
+    ])
+    def test_create_uploader_missing_fields(self, gc):
+        from lib.gcore import create_uploader
+        assert create_uploader({"gcore": gc}) is None
+
+    def test_create_uploader_no_gcore_key(self):
+        from lib.gcore import create_uploader
+        assert create_uploader({}) is None
+
+    @patch("requests.put")
+    def test_upload_returns_url(self, mock_put):
+        mock_put.return_value = MagicMock(ok=True)
+        from lib.gcore import GcoreKVUploader
+        kv = GcoreKVUploader("tok", 130, "https://app.example.com")
+        assert kv.upload("key1", "content") == "https://app.example.com/key1"
+
+    @patch("requests.put")
+    def test_upload_sends_add_op(self, mock_put):
+        mock_put.return_value = MagicMock(ok=True)
+        from lib.gcore import GcoreKVUploader
+        kv = GcoreKVUploader("tok", 130, "https://app.example.com")
+        kv.upload("phone/config.json", "данные")
+        call_kw = mock_put.call_args
+        assert call_kw.args[0].endswith("/kv/130/data")
+        assert call_kw.kwargs["headers"]["Authorization"] == "APIKey tok"
+        assert call_kw.kwargs["json"] == [{
+            "op": "add",
+            "key": "phone/config.json",
+            "datatype": "kv",
+            "payload": {"encoding": "plain", "value": "данные"},
+        }]
+
+    @patch("requests.put")
+    def test_upload_failure_raises(self, mock_put):
+        resp = MagicMock(ok=False, status_code=403, text="forbidden")
+        resp.raise_for_status.side_effect = Exception("403")
+        mock_put.return_value = resp
+        from lib.gcore import GcoreKVUploader
+        kv = GcoreKVUploader("tok", 130, "https://app.example.com")
+        with pytest.raises(Exception):
+            kv.upload("key1", "content")
+
+    @patch("requests.put")
+    def test_delete(self, mock_put):
+        mock_put.return_value = MagicMock()
+        mock_put.return_value.raise_for_status = MagicMock()
+        from lib.gcore import GcoreKVUploader
+        kv = GcoreKVUploader("tok", 130, "https://app.example.com")
+        kv.delete("key1")
+        assert mock_put.call_args.kwargs["json"] == [
+            {"op": "del_key", "key": "key1", "datatype": "kv"}
+        ]
+
+    @patch("requests.get")
+    def test_list_all_keys_single_page(self, mock_get):
+        mock_get.return_value = MagicMock()
+        mock_get.return_value.raise_for_status = MagicMock()
+        mock_get.return_value.json.return_value = {
+            "count": 2,
+            "entries": [{"key": "k1"}, {"key": "k2"}],
+        }
+        from lib.gcore import GcoreKVUploader
+        kv = GcoreKVUploader("tok", 130, "https://app.example.com")
+        assert kv.list_all_keys() == [{"name": "k1"}, {"name": "k2"}]
+
+    @patch("requests.get")
+    def test_list_all_keys_prefix_filter(self, mock_get):
+        mock_get.return_value = MagicMock()
+        mock_get.return_value.raise_for_status = MagicMock()
+        mock_get.return_value.json.return_value = {
+            "count": 2,
+            "entries": [{"key": "pfx/a"}, {"key": "other/b"}],
+        }
+        from lib.gcore import GcoreKVUploader
+        kv = GcoreKVUploader("tok", 130, "https://app.example.com")
+        assert kv.list_all_keys(prefix="pfx/") == [{"name": "pfx/a"}]
+
+    @patch("requests.get")
+    def test_list_all_keys_pagination(self, mock_get):
+        page1 = MagicMock()
+        page1.raise_for_status = MagicMock()
+        page1.json.return_value = {
+            "count": 2, "entries": [{"key": "k1"}],
+        }
+        page2 = MagicMock()
+        page2.raise_for_status = MagicMock()
+        page2.json.return_value = {
+            "count": 2, "entries": [{"key": "k2"}],
+        }
+        mock_get.side_effect = [page1, page2]
+        from lib.gcore import GcoreKVUploader
+        kv = GcoreKVUploader("tok", 130, "https://app.example.com")
+        assert kv.list_all_keys() == [{"name": "k1"}, {"name": "k2"}]
+        assert mock_get.call_count == 2
+
+    @patch("requests.put")
+    @patch("requests.get")
+    def test_delete_by_prefix(self, mock_get, mock_put):
+        mock_get.return_value = MagicMock()
+        mock_get.return_value.raise_for_status = MagicMock()
+        mock_get.return_value.json.return_value = {
+            "count": 2,
+            "entries": [{"key": "pfx/a"}, {"key": "pfx/b"}],
+        }
+        mock_put.return_value = MagicMock()
+        mock_put.return_value.raise_for_status = MagicMock()
+        from lib.gcore import GcoreKVUploader
+        kv = GcoreKVUploader("tok", 130, "https://app.example.com")
+        deleted = kv.delete_by_prefix("pfx/")
+        assert deleted == ["pfx/a", "pfx/b"]
+        ops = mock_put.call_args.kwargs["json"]
+        assert [op["key"] for op in ops] == ["pfx/a", "pfx/b"]
+        assert all(op["op"] == "del_key" for op in ops)
+
+
+# ═══════════════════════════════════════════════════
 # lib/deploy.py
 # ═══════════════════════════════════════════════════
 

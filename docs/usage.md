@@ -62,7 +62,8 @@ Directories in `setup_dirs` accept the same optional `{'owner', 'mode'}` dict:
 ],
 ```
 
-Directories are created with `mkdir -p`, then `chown`/`chmod` over SSH. Unlike file permissions, directory permissions are not shown in `render`/`diff`.
+Directories are created with `mkdir -p`, then `chown`/`chmod` over SSH.\
+Unlike file permissions, directory permissions are not shown in `render`/`diff`.
 
 ## Restart command
 
@@ -97,11 +98,13 @@ Useful when the restart command depends on per-instance secrets (e.g. pulling a 
 ],
 ```
 
-Useful when paths depend on secrets (e.g., container name from `common.basename`). Static lists still work as before — callable is checked first.
+Useful when paths depend on secrets (e.g., container name from `common.basename`).\
+Static lists still work as before — callable is checked first.
 
 ## Multi-instance services with `instances_key`
 
-The `ServiceDeployer` supports deploying multiple instances of the same service from a single secrets file. By default, it looks for an `instances:` key in the secrets, but this can be overridden via `instances_key`:
+The `ServiceDeployer` supports deploying multiple instances of the same service from a single secrets file.\
+By default, it looks for an `instances:` key in the secrets, but this can be overridden via `instances_key`:
 
 ```python
 # Default — reads secrets['instances']
@@ -116,13 +119,13 @@ deployer = ServiceDeployer({
 })
 ```
 
-The CLI (`list`, `render`, `diff`, `deploy --all`) uses this key to enumerate available instances. This allows a single secrets file to manage different logical groups (e.g., proxy nodes and relay nodes) with separate deploy scripts.
+The CLI (`list`, `render`, `diff`, `deploy --all`) uses this key to enumerate available instances.\
+This allows a single secrets file to manage different logical groups (e.g., proxy nodes and relay nodes) with separate deploy scripts.
 
 ## SSH multiplexing
 
-All remote work goes through `lib/remote.py`, which enables OpenSSH connection multiplexing
-(`ControlMaster=auto` + `ControlPersist=60s`). A deploy opens **one** TCP connection and
-authenticates **once** per host; every following `ssh` — including the `ssh` that rsync
+All remote work goes through `lib/remote.py`, which enables OpenSSH connection multiplexing (`ControlMaster=auto` + `ControlPersist=60s`).\
+A deploy opens **one** TCP connection and authenticates **once** per host; every following `ssh` — including the `ssh` that rsync\
 spawns via `-e` — reuses it as a channel:
 
 ```
@@ -130,13 +133,12 @@ first ssh/rsync → master connection + auth
 rest of the run → channels over the same connection
 ```
 
-One master per `user@host:port`, named by OpenSSH's `%C` token (hash of local host, remote
-host, port and user). Control sockets live in `$XDG_RUNTIME_DIR/infra-cm/` (or
-`~/.ssh/infra-cm/` when `XDG_RUNTIME_DIR` is unset); ssh removes them when the master
-exits. Nothing in a service `deploy.py` has to change.
+One master per `user@host:port`, named by OpenSSH's `%C` token (hash of local host, remote host, port and user).\
+Control sockets live in `$XDG_RUNTIME_DIR/infra-cm/` (or `~/.ssh/infra-cm/` when `XDG_RUNTIME_DIR` is unset);\
+Ssh removes them when the master exits. Nothing in a service `deploy.py` has to change.
 
-Trade-off: the master stays alive for 60s after the last command, so that authenticated
-session is reused without re-auth until it expires. To change or disable persistence,
+Trade-off: the master stays alive for 60s after the last command, so that authenticated\
+session is reused without re-auth until it expires. To change or disable persistence,\
 edit `CONTROL_PERSIST` in `lib/remote.py` (`"no"` disables it). To force fresh connections:
 
 ```bash
@@ -169,40 +171,41 @@ python deploy.py deploy --all
 python deploy.py deploy --all --no-restart
 ```
 
-`diff` walks every requested instance: reachable hosts print their file status, unreachable
-ones print `<instance> unreachable: <ssh error>`, and the run ends with a non-zero exit
-code plus a summary of which instances failed. `deploy` still stops at the first failure.
+`diff` walks every requested instance: reachable hosts print their file status, unreachable ones print `<instance> unreachable: <ssh error>`,\
+and the run ends with a non-zero exit code plus a summary of which instances failed. `deploy` still stops at the first failure.
 
 ### sing-box client/router configs
 
-`sing-box/generate.py` generates client and router configs locally and optionally uploads them to Cloudflare Workers KV for remote distribution via URL. Uses subcommands:
+`sing-box/generate.py` generates client and router configs locally and optionally uploads them to a config store for remote distribution via URL.\
+Gcore FastEdge Edge Storage is the default backend while Cloudflare Workers KV is the second one.\
+Subcommands:
 
 ```bash
 cd sing-box/
 
-# Generate configs locally
+# Locally
 python generate.py generate                        # all clients + routers
 python generate.py generate --target clients       # only clients
 python generate.py generate --target router        # only routers
 python generate.py generate --user alice bob       # only specific users
 
-# Generate + upload to Cloudflare KV
+# Upload with Gcore by default
 python generate.py generate --upload
+python generate.py generate --upload --backend cloudflare
 python generate.py generate --upload --user alice   # upload only alice
 
-# Token management
 python generate.py gen-token                        # generate 1 token
 python generate.py gen-token -n 5                   # generate 5 tokens
 python generate.py gen-token --user bob alice       # tokens formatted for secrets.yaml
 
-# KV management
-python generate.py kv-list                          # list all keys in KV
+python generate.py kv-list
 python generate.py kv-list --prefix phone           # filter by prefix
 python generate.py kv-revoke phone-m                # delete phone-m configs from KV
 python generate.py kv-purge                         # delete everything from KV
 ```
 
-When uploading with `--user`, the generated `urls.json` is merged with existing data instead of overwriting — so single-user uploads don't erase other users' URLs.
+When uploading with `--user`, the generated `urls.json` is merged with\
+existing data instead of overwriting — so single-user uploads don't erase other users' URLs.
 
 Add new user:
 
@@ -213,24 +216,30 @@ Add new user:
 
 ### Router configs
 
-`router/generate.py` generates OpenWrt configs (nftables, network, wireless, firewall, dhcp, system, init scripts) and uploads to KV. Routers pull configs via `update.sh`.
+`router/generate.py` generates OpenWrt configs (nftables, network, wireless, firewall, dhcp, system, init scripts) and uploads them to\
+the selected backend — Gcore Edge Storage or Cloudflare KV via `--backend cloudflare`.\
+Both `update.sh` and the sing-box init script use that backend's URL, so the backend must match the one used for `sing-box/generate.py --target router`.
 
 ```bash
 cd router/
 
-python generate.py list                        # list routers
-python generate.py render router-1             # print rendered configs
+python generate.py list
+python generate.py render router-1
 python generate.py generate router-1           # generate to output/
-python generate.py generate --upload router-1  # generate + upload to KV
-python generate.py generate --upload --all     # all routers
+python generate.py generate --upload router-1
+python generate.py generate --upload --backend cloudflare router-1
+python generate.py generate --upload --all
 ```
 
 On the router:
 
 ```bash
-sh /root/update.sh                             # pull configs from KV
-reboot                                         # apply
+sh /root/update.sh                             # pull configs from the backend
+reboot
 ```
+
+`update.sh` is generated locally, not uploaded. After changing the backend, copy `router/.output/<router>/update.sh` to the router once, then run it;\
+it pulls the rest of the configs, including the sing-box init script, from the selected backend.
 
 ### Certificates
 
@@ -244,15 +253,16 @@ Wildcard certificate is managed centrally by `certs/deploy.py`:
 
 ```bash
 cd certs/
-python deploy.py status                # check certificate expiry
-python deploy.py issue                 # obtain/renew certificate
-python deploy.py issue --force         # force re-issue regardless of expiry
-python deploy.py distribute            # push to all target servers
-python deploy.py distribute server1    # push to specific server
+python deploy.py status                # certificate expiry
+python deploy.py issue                 # obtain/renew
+python deploy.py issue --force         # regardless of expiry
+python deploy.py distribute            # to all target servers
+python deploy.py distribute server1    # specific server
 python deploy.py renew                 # issue if <30 days + distribute
 ```
 
-Traefik reads certificates from `/etc/ssl/` via file provider with `watch: true` — updating the cert files and touching the dynamic config is enough, no container restart required.
+Traefik reads certificates from `/etc/ssl/` via file provider with `watch: true`, updating the\
+cert files and touching the dynamic config is enough, no container restart required.
 
 The same wildcard certificate is used by other native services — they read directly from `/etc/ssl/` on the host.
 

@@ -1,4 +1,3 @@
-# lib/cloudflare.py
 import sys
 import requests
 

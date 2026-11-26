@@ -5,7 +5,7 @@ START=99
 
 CONFIG_DIR="{{ shared.sing_box.config_dir }}"
 TOKEN="{{ router.sing_box_token }}"
-WORKER="https://{{ cloudflare.worker_domain }}"
+WORKER="{{ config_url }}"
 
 update_configs() {
 {% for f in shared.sing_box.files %}

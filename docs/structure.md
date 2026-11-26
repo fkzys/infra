@@ -54,8 +54,8 @@ livekit:
   hs_token: "..."
 ```
 
-The values must match `element-call/secrets/secrets.enc.yaml`. Synapse does not
-need `livekit.rtc_domain`, `livekit.key` or `livekit.secret`.
+The values must match `element-call/secrets/secrets.enc.yaml`.\
+Synapse does not need `livekit.rtc_domain`, `livekit.key` or `livekit.secret`.
 
 ### Multi-instance secrets
 
@@ -138,10 +138,10 @@ host: server1
 opencloud:
   domain: cloud.example.com
   initial_admin_password: "..."
-  image: "..."                 # optional, default opencloudeu/opencloud-rolling:latest
-  radicale_image: "..."        # optional, default docker.io/opencloudeu/radicale:latest
-  trusted_proxies: "..."       # optional, passed as TRUSTED_PROXIES
-  collabora_domain: "..."      # optional, passed as OC_COLLABORA_DOMAIN
+  image: "..."                 # optional
+  radicale_image: "..."        # optional
+  trusted_proxies: "..."       # optional
+  collabora_domain: "..."      # optional
 ```
 
 ### backup secrets
@@ -164,8 +164,8 @@ backup:
       secret_key: "..."
 ```
 
-Snapshots are tagged `opencloud`, `synapse` and `radicale`. `prune.sh` keeps 7
-daily, 4 weekly and 6 monthly snapshots per repository.
+Snapshots are tagged `opencloud`, `synapse` and `radicale`.\
+`prune.sh` keeps 7 daily, 4 weekly and 6 monthly snapshots per repository.
 
 ### mirotalk secrets
 
@@ -196,10 +196,9 @@ livekit:
   hs_token: "..."
 ```
 
-The same `livekit.as_token` / `livekit.hs_token` pair must also exist in
-`synapse/secrets/secrets.enc.yaml`. Synapse renders it into its AS registration
-file; element-call renders it into the lk-jwt registration file. Rotate both
-copies together.
+The same `livekit.as_token` / `livekit.hs_token` pair must also exist in `synapse/secrets/secrets.enc.yaml`.\
+Synapse renders it into its AS registration file; element-call renders it into the lk-jwt registration file.\
+Rotate both copies together.
 
 ### wireguard secrets
 
@@ -245,6 +244,11 @@ instances:
 ### router secrets
 
 ```yaml
+gcore:
+  api_token: "..."
+  store_id: 130
+  app_url: "https://singbox-configs-xxxx.fastedge.app"
+
 cloudflare:
   account_id: "..."
   api_token: "..."
@@ -291,7 +295,7 @@ routers:
 
 ### sing-box secrets
 
-sing-box uses two instance groups in one secrets file — proxy nodes and relay nodes:
+sing-box uses two instance groups in one secrets file,  proxy nodes and relay nodes:
 
 ```yaml
 common:
@@ -299,7 +303,7 @@ common:
   volume_path: /opt/podman/my-container
   image: ghcr.io/sagernet/sing-box:latest
 
-instances:                        # proxy nodes (deployed via deploy.py)
+instances:                        # deployed via deploy.py
   instance1:
     host: server1
     reality:
@@ -311,7 +315,7 @@ instances:                        # proxy nodes (deployed via deploy.py)
       server_name: "proxy-sni.com"
     image: ghcr.io/sagernet/sing-box:latest-beta    # per-instance override
 
-relay_instances:                  # relay nodes (deployed via deploy-relay.py)
+relay_instances:                  # deployed via deploy-relay.py
   relay-eu:
     host: server3
     address: "..."
@@ -346,6 +350,21 @@ users:                            # same credentials for both relay and proxy in
     token: "..."
 ```
 
+Config distribution backends:
+
+```yaml
+gcore:                            # default backend for sing-box
+  api_token: "..."
+  store_id: 130
+  app_url: "https://singbox-configs-xxxx.fastedge.app"
+
+cloudflare:                       # optional backend, kept for rollback
+  account_id: "..."
+  api_token: "..."
+  kv_namespace_id: "..."
+  worker_domain: "..."
+```
+
 ## What gets deployed where
 
 Quadlet units go to `/etc/containers/systemd/` on remote.
@@ -354,20 +373,20 @@ Service configs go to `/opt/podman/<service>/` and are mounted into containers v
 
 Secrets (signing keys, API tokens) are written via SSH with `chmod 600`.
 
-Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/` — mounted read-only into containers that need them, read directly by native services.
+Certificates go to `/etc/ssl/certs/` and `/etc/ssl/private/`, mounted read-only into containers that need them, read directly by native services.
 
 Native service configs:
-- system → `/etc/ssh/sshd_config`, `/etc/sysctl.d/`, `/etc/systemd/network/`, `/etc/systemd/journald.conf`, systemd timers
-- firewall → `/etc/firewalld/zones/`
-- backup → `/root/scripts/backup.sh`, `/root/scripts/prune.sh`, backup + prune systemd service/timer
-- wireguard → `/etc/wireguard/wg0.conf`
-- i2p → `/etc/i2pd/i2pd.conf`
+- system -> `/etc/ssh/sshd_config`, `/etc/sysctl.d/`, `/etc/systemd/network/`, `/etc/systemd/journald.conf`, systemd timers
+- firewall -> `/etc/firewalld/zones/`
+- backup -> `/root/scripts/backup.sh`, `/root/scripts/prune.sh`, backup + prune systemd service/timer
+- wireguard -> `/etc/wireguard/wg0.conf`
+- i2p -> `/etc/i2pd/i2pd.conf`
 
 Router configs (via KV):
-- nftables → `/etc/nftables/nft-ipv6`
-- network, wireless, firewall, dhcp, system → `/etc/config/`
-- sing-box init → `/etc/init.d/sing-box_my`
-- ip rules → `/etc/rc.local`
+- nftables -> `/etc/nftables/nft-ipv6`
+- network, wireless, firewall, dhcp, system -> `/etc/config/`
+- sing-box init -> `/etc/init.d/sing-box_my`
+- ip rules -> `/etc/rc.local`
 
 ## Remote server layout
 

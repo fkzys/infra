@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Client/router config generator with Cloudflare Workers KV."""
+"""Client/router config generator with pluggable config storage."""
 
 import sys
 import json
@@ -11,12 +11,28 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.sops import decrypt_sops
 from lib.jinja import create_jinja_env
-from lib.cloudflare import CFKVUploader, create_uploader
+from lib.cloudflare import create_uploader as create_cloudflare_uploader
+from lib.gcore import create_uploader as create_gcore_uploader
 
 BASE = Path(__file__).parent
 TEMPLATES_DIR = BASE / 'templates'
 SECRETS_FILE = BASE / 'secrets' / 'secrets.enc.yaml'
 OUTPUT_DIR = BASE / '.output'
+
+BACKENDS = {
+    'gcore': create_gcore_uploader,
+    'cloudflare': create_cloudflare_uploader,
+}
+DEFAULT_BACKEND = 'gcore'
+BACKEND_LABELS = {'gcore': 'Gcore', 'cloudflare': 'Cloudflare'}
+
+
+def get_uploader(secrets, backend):
+    uploader = BACKENDS[backend](secrets)
+    if not uploader:
+        print(f"⚠ {BACKEND_LABELS[backend]} not configured in secrets",
+              file=sys.stderr)
+    return uploader
 
 
 def get_jinja_env():
@@ -148,9 +164,8 @@ def cmd_gen_token(args):
 # --- KV management ---
 
 def cmd_list_kv(secrets, args):
-    uploader = create_uploader(secrets)
+    uploader = get_uploader(secrets, args.backend)
     if not uploader:
-        print("Cloudflare not configured in secrets", file=sys.stderr)
         sys.exit(1)
 
     token_map = {}
@@ -181,9 +196,8 @@ def cmd_list_kv(secrets, args):
 
 
 def cmd_revoke(secrets, args):
-    uploader = create_uploader(secrets)
+    uploader = get_uploader(secrets, args.backend)
     if not uploader:
-        print("Cloudflare not configured in secrets", file=sys.stderr)
         sys.exit(1)
 
     user = get_user_by_name(secrets, args.username)
@@ -212,9 +226,8 @@ def cmd_revoke(secrets, args):
 
 
 def cmd_purge_kv(secrets, args):
-    uploader = create_uploader(secrets)
+    uploader = get_uploader(secrets, args.backend)
     if not uploader:
-        print("Cloudflare not configured in secrets", file=sys.stderr)
         sys.exit(1)
 
     keys = uploader.list_all_keys()
@@ -324,10 +337,9 @@ def cmd_generate(args):
 
     uploader = None
     if args.upload:
-        uploader = create_uploader(secrets)
+        uploader = get_uploader(secrets, args.backend)
         if not uploader:
-            print("⚠ Cloudflare not configured. Continuing without upload...",
-                  file=sys.stderr)
+            print("⚠ Continuing without upload...", file=sys.stderr)
 
     all_urls = {'clients': {}, 'routers': {}}
     targets = args.target
@@ -366,6 +378,15 @@ def cmd_kv_purge(args):
     cmd_purge_kv(secrets, args)
 
 
+def add_backend_arg(parser):
+    parser.add_argument(
+        '--backend',
+        choices=sorted(BACKENDS),
+        default=DEFAULT_BACKEND,
+        help=f'Config storage backend (default: {DEFAULT_BACKEND})',
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='sing-box client/router config generator',
@@ -378,12 +399,14 @@ def main():
                            formatter_class=argparse.RawDescriptionHelpFormatter,
                            epilog="""examples:
   python generate.py generate                        Generate all locally
-  python generate.py generate --upload               Generate + upload to KV
+  python generate.py generate --upload               Generate + upload
+  python generate.py generate --upload --backend cloudflare
   python generate.py generate --user alice bob       Only these users
   python generate.py generate --target clients       Only client configs
   python generate.py generate --upload --user alice  Upload only alice""")
     p_gen.add_argument('--upload', action='store_true',
-                       help='Upload configs to Cloudflare Workers KV')
+                       help='Upload configs to the selected backend')
+    add_backend_arg(p_gen)
     p_gen.add_argument('--target', choices=['all', 'clients', 'router'],
                        nargs='+', default=['all'],
                        help='What to generate (default: all)')
@@ -410,6 +433,7 @@ def main():
     p_kv_list = sub.add_parser('kv-list', help='List all keys in KV store')
     p_kv_list.add_argument('--prefix',
                            help='Filter keys by prefix')
+    add_backend_arg(p_kv_list)
     p_kv_list.set_defaults(func=cmd_kv_list)
 
     # -- kv-revoke --
@@ -418,6 +442,7 @@ def main():
     p_kv_rev.add_argument('username', help='User whose configs to delete')
     p_kv_rev.add_argument('-y', '--yes', action='store_true',
                           help='Skip confirmation prompt')
+    add_backend_arg(p_kv_rev)
     p_kv_rev.set_defaults(func=cmd_kv_revoke)
 
     # -- kv-purge --
@@ -425,6 +450,7 @@ def main():
                                 help='Delete ALL keys from KV store')
     p_kv_purge.add_argument('-y', '--yes', action='store_true',
                             help='Skip confirmation prompt')
+    add_backend_arg(p_kv_purge)
     p_kv_purge.set_defaults(func=cmd_kv_purge)
 
     args = parser.parse_args()

@@ -1,5 +1,6 @@
 sing-box/deprecated
 sing-box/.output
+sing-box/gcore/wasm/*
 router/.output
 *__pycache__*
 certs/.certstore/
